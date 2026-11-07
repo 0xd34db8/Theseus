@@ -419,7 +419,7 @@ export default function HomePage() {
       {/* Main Content Layout: Split Panes (Import & Recents) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6 px-4 sm:px-6 md:px-8 py-4 sm:py-5 min-h-0 lg:overflow-hidden">
         {/* Left Column: Import New Syllabus */}
-        <div className="lg:col-span-5 xl:col-span-5 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-xs p-5 sm:p-6 flex flex-col justify-between overflow-y-auto">
+        <div className="lg:col-span-5 xl:col-span-5 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-2xs p-5 sm:p-6 flex flex-col justify-between overflow-y-auto">
           <div className="space-y-5">
             <div>
               <div className="flex items-center justify-between">
@@ -439,7 +439,7 @@ export default function HomePage() {
                 value={syllabusName}
                 onChange={(e) => setSyllabusName(e.target.value)}
                 placeholder="e.g. Machine Learning, Cloud Architecture"
-                className="w-full px-4 py-2.5 bg-subtle border border-border rounded-2xl text-xs text-foreground placeholder-muted-foreground outline-none focus:border-accent focus:bg-card transition-all font-manrope"
+                className="w-full px-4 py-2.5 bg-subtle border border-border rounded-2xl text-xs text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card transition-all font-manrope"
               />
             </div>
 
@@ -454,7 +454,7 @@ export default function HomePage() {
                   }}
                   className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                     activeTab === "file"
-                      ? "bg-card text-foreground shadow-xs"
+                      ? "bg-card text-foreground shadow-2xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -468,7 +468,7 @@ export default function HomePage() {
                   }}
                   className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                     activeTab === "text"
-                      ? "bg-card text-foreground shadow-xs"
+                      ? "bg-card text-foreground shadow-2xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -526,7 +526,7 @@ export default function HomePage() {
                   }}
                   className="hidden"
                 />
-                <div className="w-12 h-12 rounded-full bg-card shadow-xs flex items-center justify-center text-foreground-subtle mb-3 border border-border">
+                <div className="w-12 h-12 rounded-full bg-card shadow-2xs flex items-center justify-center text-foreground-subtle mb-3 border border-border">
                   {uploadedFile ? (
                     <FileText className="w-5 h-5 text-emerald-500" />
                   ) : (
@@ -559,7 +559,7 @@ export default function HomePage() {
                     }
                   }}
                   placeholder="Paste unformatted syllabus text or generated JSON here (pasting JSON will automatically open it):&#10;&#10;UNIT I: Introduction to Machine Learning&#10;Types of Learning: Supervised, Unsupervised, Reinforcement&#10;Theory of Generalization: Generalization bound, VC Dimension&#10;Decision Trees, Neural Networks, Ensemble Learning"
-                  className="w-full p-3.5 bg-subtle border border-border rounded-2xl text-xs font-mono text-foreground placeholder-muted-foreground outline-none focus:border-accent focus:bg-card resize-none transition-all leading-relaxed"
+                  className="w-full p-3.5 bg-subtle border border-border rounded-2xl text-xs font-mono text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card resize-none transition-all leading-relaxed"
                 />
               </div>
             )}
@@ -574,7 +574,7 @@ export default function HomePage() {
                   type="checkbox"
                   checked={coreSyllabusOnly}
                   onChange={(e) => setCoreSyllabusOnly(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-border text-foreground focus:ring-0 focus:ring-offset-0 cursor-pointer accent-accent"
+                  className="w-3.5 h-3.5 rounded-sm border-border text-foreground focus:ring-0 focus:ring-offset-0 cursor-pointer accent-accent"
                 />
                 <span className="font-normal text-foreground-subtle group-hover:text-foreground transition-colors">
                   Core Syllabus Only
@@ -585,7 +585,7 @@ export default function HomePage() {
             {/* Error Message Notice */}
             {errorMessage && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-500 flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <p>{errorMessage}</p>
                   {!apiKey && (
@@ -632,7 +632,7 @@ export default function HomePage() {
               type="button"
               disabled={isFormatting}
               onClick={() => handleImport(true)}
-              className="w-full py-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-2xl text-xs font-medium tracking-tight shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer font-manrope disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-2xl text-xs font-medium tracking-tight shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer font-manrope disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isFormatting ? (
                 <>
@@ -663,7 +663,7 @@ export default function HomePage() {
         </div>
 
         {/* Right Column: Recently Worked on Files */}
-        <div className="lg:col-span-7 xl:col-span-7 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-xs p-5 sm:p-6 flex flex-col min-h-[300px] lg:min-h-0 overflow-hidden">
+        <div className="lg:col-span-7 xl:col-span-7 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-2xs p-5 sm:p-6 flex flex-col min-h-[300px] lg:min-h-0 overflow-hidden">
           <div className="flex items-center justify-between pb-4 border-b border-border-subtle">
             <div>
               <h2 className="text-xl font-light text-foreground tracking-tight">

@@ -2,11 +2,8 @@ import { SyllabusData } from "@/types/syllabus";
 import { initialSyllabusData } from "./mockData";
 import { LLMProvider, AIConfig } from "@/types/ai";
 
-export type { LLMProvider, AIConfig };
-
 const STORAGE_KEY = "theseus_syllabi_v1";
 const ACTIVE_ID_KEY = "theseus_active_syllabus_id";
-const API_KEY_STORAGE = "theseus_api_key";
 const AI_CONFIG_STORAGE = "theseus_ai_config";
 
 export function detectProviderFromKey(key: string): LLMProvider {
@@ -46,16 +43,14 @@ export function getAIConfig(): AIConfig {
     const raw = localStorage.getItem(AI_CONFIG_STORAGE);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.apiKey) return parsed;
+      if (parsed.apiKey !== undefined) return parsed;
     }
   } catch {}
 
-  const legacyKey = localStorage.getItem(API_KEY_STORAGE) || "";
-  const provider = detectProviderFromKey(legacyKey);
   return {
-    provider,
-    apiKey: legacyKey,
-    model: getDefaultModelForProvider(provider),
+    provider: "gemini",
+    apiKey: "",
+    model: getDefaultModelForProvider("gemini"),
   };
 }
 
@@ -68,13 +63,11 @@ export function saveAIConfig(config: AIConfig): void {
     baseURL: config.baseURL?.trim(),
   };
   localStorage.setItem(AI_CONFIG_STORAGE, JSON.stringify(cleanConfig));
-  localStorage.setItem(API_KEY_STORAGE, cleanConfig.apiKey);
 }
 
 export function getApiKey(): string {
   if (typeof window === "undefined") return "";
-  const cfg = getAIConfig();
-  return cfg.apiKey || localStorage.getItem(API_KEY_STORAGE) || "";
+  return getAIConfig().apiKey;
 }
 
 export function saveApiKey(key: string): void {
@@ -90,7 +83,6 @@ export function saveApiKey(key: string): void {
 
 export function removeApiKey(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(API_KEY_STORAGE);
   localStorage.removeItem(AI_CONFIG_STORAGE);
 }
 

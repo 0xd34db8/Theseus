@@ -15,7 +15,7 @@ export const TheseusLogo: React.FC<{ className?: string; size?: number }> = ({
       width={318}
       height={400}
       draggable={false}
-      className={`inline-block flex-shrink-0 object-contain select-none ${className}`}
+      className={`inline-block shrink-0 object-contain select-none ${className}`}
       style={size ? { width: size * LOGO_ASPECT, height: size } : undefined}
     />
   );

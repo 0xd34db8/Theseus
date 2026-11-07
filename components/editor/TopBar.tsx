@@ -82,7 +82,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             }}
             placeholder={searchPlaceholder}
             autoFocus
-            className="w-full pl-8 pr-16 py-1.5 text-xs bg-card border border-border rounded-full outline-none focus:border-accent font-manrope text-foreground placeholder-muted-foreground"
+            className="w-full pl-8 pr-16 py-1.5 text-xs bg-card border border-border rounded-full outline-hidden focus:border-accent font-manrope text-foreground placeholder-muted-foreground"
           />
           {searchQuery && (
             <div className="absolute right-2 flex items-center gap-1">
@@ -96,7 +96,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 type="button"
                 onClick={() => onSearchChange("")}
-                className="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
+                className="p-1 text-muted-foreground hover:text-foreground rounded-sm cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -129,7 +129,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           autoFocus
-          className="bg-transparent border-b border-border outline-none text-foreground font-light px-1 py-0 font-manrope min-w-[100px] max-w-[180px] sm:min-w-[200px] text-base sm:text-xl md:text-2xl"
+          className="bg-transparent border-b border-border outline-hidden text-foreground font-light px-1 py-0 font-manrope min-w-[100px] max-w-[180px] sm:min-w-[200px] text-base sm:text-xl md:text-2xl"
         />
       ) : (
         <span
@@ -182,7 +182,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           aria-label="Search in note"
           className={`${
             searchQuery ? "w-44 lg:w-48 pr-20" : "w-36 pr-7.5"
-          } pl-3.5 py-1.5 text-xs font-normal bg-card text-foreground placeholder-muted-foreground rounded-full border border-border shadow-xs focus:outline-none focus:border-accent transition-all font-manrope`}
+          } pl-3.5 py-1.5 text-xs font-normal bg-card text-foreground placeholder-muted-foreground rounded-full border border-border shadow-2xs focus:outline-hidden focus:border-accent transition-all font-manrope`}
         />
 
         {searchQuery ? (
@@ -199,7 +199,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={onFindPrev}
-                  className="p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-subtle cursor-pointer"
+                  className="p-0.5 text-muted-foreground hover:text-foreground rounded-sm hover:bg-subtle cursor-pointer"
                   title="Previous match (Shift+Enter)"
                 >
                   <ChevronUp className="w-3 h-3" />
@@ -207,7 +207,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <button
                   type="button"
                   onClick={onFindNext}
-                  className="p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-subtle cursor-pointer"
+                  className="p-0.5 text-muted-foreground hover:text-foreground rounded-sm hover:bg-subtle cursor-pointer"
                   title="Next match (Enter)"
                 >
                   <ChevronDown className="w-3 h-3" />

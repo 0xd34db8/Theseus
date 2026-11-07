@@ -185,7 +185,7 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
               <AlignRight className="w-3.5 h-3.5" />
             </button>
 
-            <div className="w-[1px] h-3.5 bg-border mx-0.5" />
+            <div className="w-px h-3.5 bg-border mx-0.5" />
 
             {/* Quick Size Presets */}
             {[
@@ -207,7 +207,7 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
                   setLiveWidth(targetWidth);
                   updateAttributes({ width: targetWidth });
                 }}
-                className="px-1.5 py-0.5 text-[10px] font-medium text-foreground-subtle hover:text-foreground hover:bg-subtle rounded transition-colors cursor-pointer"
+                className="px-1.5 py-0.5 text-[10px] font-medium text-foreground-subtle hover:text-foreground hover:bg-subtle rounded-sm transition-colors cursor-pointer"
               >
                 {preset.label}
               </button>
@@ -221,13 +221,13 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
                   setLiveWidth(null);
                   updateAttributes({ width: null });
                 }}
-                className="px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-subtle rounded transition-colors cursor-pointer"
+                className="px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-subtle rounded-sm transition-colors cursor-pointer"
               >
                 Auto
               </button>
             )}
 
-            <div className="w-[1px] h-3.5 bg-border mx-0.5" />
+            <div className="w-px h-3.5 bg-border mx-0.5" />
 
             {/* Delete Image */}
             <button
@@ -249,7 +249,7 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
           title={node.attrs.title || ""}
           className={`block w-full h-auto object-contain rounded-xl border border-border shadow-2xs transition-shadow cursor-pointer ${
             selected
-              ? "ring-2 ring-accent ring-offset-2 ring-offset-card shadow-sm"
+              ? "ring-2 ring-accent ring-offset-2 ring-offset-card shadow-xs"
               : isHovered
                 ? "ring-1 ring-border"
                 : ""
@@ -288,7 +288,7 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
 
         {/* Live Size Tooltip while dragging */}
         {isResizing && liveWidth && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/80 text-white text-[10px] rounded-md pointer-events-none select-none z-30 font-mono shadow-sm">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/80 text-white text-[10px] rounded-md pointer-events-none select-none z-30 font-mono shadow-xs">
             {liveWidth}px
           </div>
         )}

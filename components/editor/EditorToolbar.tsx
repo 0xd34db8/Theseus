@@ -48,14 +48,14 @@ export function EditorToolbar({
       isDisabled
         ? "text-muted-foreground/40 cursor-not-allowed"
         : isActive
-          ? "bg-card text-foreground font-semibold shadow-xs"
+          ? "bg-card text-foreground font-semibold shadow-2xs"
           : "text-foreground-subtle hover:bg-card hover:text-foreground"
     }`;
 
   const iconClass = compact ? "w-3 h-3" : "w-3.5 h-3.5";
   const dividerClass = compact
-    ? "w-[1px] h-3.5 bg-border mx-0.5 shrink-0"
-    : "w-[1px] h-4 bg-border mx-1 shrink-0";
+    ? "w-px h-3.5 bg-border mx-0.5 shrink-0"
+    : "w-px h-4 bg-border mx-1 shrink-0";
 
   return (
     <div
@@ -121,7 +121,7 @@ export function EditorToolbar({
               .run();
           }
         }}
-        className={`bg-card border border-border rounded text-foreground outline-none cursor-pointer font-medium hover:border-border ${
+        className={`bg-card border border-border rounded text-foreground outline-hidden cursor-pointer font-medium hover:border-border ${
           compact ? "text-[11px] px-1.5 py-0.5" : "text-xs px-2 py-1 rounded-md"
         }`}
         title="Text style"

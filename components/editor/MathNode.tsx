@@ -194,7 +194,7 @@ export function MathNodeView(props: any) {
                 onChange={(e) => setLatexInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter LaTeX formula, e.g. \int_0^\infty e^{-x} dx = 1"
-                className="w-full bg-subtle border border-border rounded px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-accent min-h-[60px]"
+                className="w-full bg-subtle border border-border rounded-sm px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-hidden focus:border-accent min-h-[60px]"
                 rows={3}
               />
             ) : (
@@ -205,12 +205,12 @@ export function MathNodeView(props: any) {
                 onChange={(e) => setLatexInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Enter LaTeX formula, e.g. E = mc^2"
-                className="w-full bg-subtle border border-border rounded px-2.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:border-accent"
+                className="w-full bg-subtle border border-border rounded-sm px-2.5 py-1 text-xs font-mono text-foreground focus:outline-hidden focus:border-accent"
               />
             )}
           </div>
 
-          <div className="bg-subtle/60 border border-border/50 rounded p-2 text-center overflow-x-auto min-h-[36px] flex items-center justify-center">
+          <div className="bg-subtle/60 border border-border/50 rounded-sm p-2 text-center overflow-x-auto min-h-[36px] flex items-center justify-center">
             <span
               dangerouslySetInnerHTML={{ __html: previewHtml }}
               className="text-sm"
@@ -225,14 +225,14 @@ export function MathNodeView(props: any) {
                 setIsDisplay(node.attrs.display === "yes");
                 setIsEditing(false);
               }}
-              className="px-2.5 py-1 rounded text-foreground-subtle hover:text-foreground hover:bg-subtle transition-colors flex items-center gap-1"
+              className="px-2.5 py-1 rounded-sm text-foreground-subtle hover:text-foreground hover:bg-subtle transition-colors flex items-center gap-1"
             >
               <X className="w-3.5 h-3.5" /> Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-3 py-1 rounded bg-accent text-white font-medium hover:bg-accent/90 transition-colors flex items-center gap-1"
+              className="px-3 py-1 rounded-sm bg-accent text-white font-medium hover:bg-accent/90 transition-colors flex items-center gap-1"
             >
               <Check className="w-3.5 h-3.5" /> Done
             </button>
@@ -264,7 +264,7 @@ export function MathNodeView(props: any) {
           e.stopPropagation();
           setIsEditing(true);
         }}
-        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 hover:bg-card border border-border p-1 rounded shadow-xs text-foreground-subtle hover:text-foreground"
+        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 hover:bg-card border border-border p-1 rounded-sm shadow-2xs text-foreground-subtle hover:text-foreground"
         title="Edit LaTeX formula"
       >
         <Edit2 className="w-3 h-3" />

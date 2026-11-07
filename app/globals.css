@@ -1,6 +1,86 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-background: var(--background);
+
+  --color-foreground: var(--foreground);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-foreground-muted: var(--muted-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+
+  --color-subtle: var(--subtle);
+  --color-subtle-foreground: var(--foreground-subtle);
+  --color-subtle-hover: var(--hover);
+  --color-subtle-active: var(--active);
+
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+
+  --color-accent: var(--accent);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-border: var(--accent-border);
+
+  --color-muted: var(--subtle);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-status-done-bg: var(--status-done-bg);
+  --color-status-done-fg: var(--status-done-fg);
+  --color-status-done-border: var(--status-done-border);
+
+  --color-status-partial-bg: var(--status-partial-bg);
+  --color-status-partial-fg: var(--status-partial-fg);
+  --color-status-partial-border: var(--status-partial-border);
+
+  --color-status-barely-bg: var(--status-barely-bg);
+  --color-status-barely-fg: var(--status-barely-fg);
+  --color-status-barely-border: var(--status-barely-border);
+
+  --color-status-untouched-bg: var(--status-untouched-bg);
+  --color-status-untouched-fg: var(--status-untouched-fg);
+  --color-status-untouched-border: var(--status-untouched-border);
+
+  --color-theseus-bg: var(--background);
+  --color-theseus-card: var(--card);
+  --color-theseus-border: var(--border);
+  --color-theseus-pill: #c7c7cc;
+  --color-theseus-chip: #bae6fd;
+  --color-theseus-chipBorder: #0284c7;
+
+  --color-theseus-status-done: #0066ff;
+  --color-theseus-status-partial: #28a745;
+  --color-theseus-status-barely: #e53e3e;
+  --color-theseus-status-untouched: #1f2937;
+
+  --font-sans: var(--font-manrope), -apple-system, sans-serif;
+  --font-manrope: var(--font-manrope), sans-serif;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* ==========================================================================
    SEMANTIC THEME TOKENS

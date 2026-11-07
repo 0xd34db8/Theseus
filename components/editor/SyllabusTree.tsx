@@ -110,27 +110,27 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
     if (isSelected) {
       switch (status) {
         case "done":
-          return "bg-status-done-bg text-status-done-fg border border-status-done-border font-medium px-2.5 py-0.5 rounded-full shadow-xs";
+          return "bg-status-done-bg text-status-done-fg border border-status-done-border font-medium px-2.5 py-0.5 rounded-full shadow-2xs";
         case "partial":
-          return "bg-status-partial-bg text-status-partial-fg border border-status-partial-border font-medium px-2.5 py-0.5 rounded-full shadow-xs";
+          return "bg-status-partial-bg text-status-partial-fg border border-status-partial-border font-medium px-2.5 py-0.5 rounded-full shadow-2xs";
         case "barely":
-          return "bg-status-barely-bg text-status-barely-fg border border-status-barely-border font-medium px-2.5 py-0.5 rounded-full shadow-xs";
+          return "bg-status-barely-bg text-status-barely-fg border border-status-barely-border font-medium px-2.5 py-0.5 rounded-full shadow-2xs";
         case "untouched":
         default:
-          return "bg-status-untouched-bg text-status-untouched-fg border border-status-untouched-border font-medium px-2.5 py-0.5 rounded-full shadow-xs";
+          return "bg-status-untouched-bg text-status-untouched-fg border border-status-untouched-border font-medium px-2.5 py-0.5 rounded-full shadow-2xs";
       }
     }
 
     switch (status) {
       case "done":
-        return "text-status-done-fg hover:bg-status-done-bg rounded px-1.5 py-0.5";
+        return "text-status-done-fg hover:bg-status-done-bg rounded-sm px-1.5 py-0.5";
       case "partial":
-        return "text-status-partial-fg hover:bg-status-partial-bg rounded px-1.5 py-0.5";
+        return "text-status-partial-fg hover:bg-status-partial-bg rounded-sm px-1.5 py-0.5";
       case "barely":
-        return "text-status-barely-fg hover:bg-status-barely-bg rounded px-1.5 py-0.5";
+        return "text-status-barely-fg hover:bg-status-barely-bg rounded-sm px-1.5 py-0.5";
       case "untouched":
       default:
-        return "text-foreground hover:bg-subtle rounded px-1.5 py-0.5";
+        return "text-foreground hover:bg-subtle rounded-sm px-1.5 py-0.5";
     }
   };
 
@@ -183,7 +183,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
               )}
             </button>
           ) : (
-            <div className="w-3.5 mr-1.5 flex-shrink-0" />
+            <div className="w-3.5 mr-1.5 shrink-0" />
           )}
 
           {/* Topic Title Badge / Label */}
@@ -220,7 +220,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                   }
                 }}
                 onBlur={() => handleSaveRename(item.id)}
-                className="px-1.5 py-0.5 text-xs bg-card text-foreground border border-border rounded outline-none focus:ring-1 focus:ring-accent font-manrope min-w-[120px]"
+                className="px-1.5 py-0.5 text-xs bg-card text-foreground border border-border rounded-sm outline-hidden focus:ring-1 focus:ring-accent font-manrope min-w-[120px]"
               />
             ) : (
               <span className="leading-relaxed tracking-tight">
@@ -230,7 +230,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
 
             {/* Note Icon strictly displayed beside topics with a note */}
             {item.hasNote && (
-              <NoteIcon className="w-3.5 h-3.5 ml-0.5 flex-shrink-0" />
+              <NoteIcon className="w-3.5 h-3.5 ml-0.5 shrink-0" />
             )}
           </div>
 
@@ -243,7 +243,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                   setAddingSubtopicToId(item.id);
                   setSubtopicInput("");
                 }}
-                className="w-5 h-5 flex items-center justify-center rounded hover:bg-subtle text-muted-foreground hover:text-foreground cursor-pointer"
+                className="w-5 h-5 flex items-center justify-center rounded-sm hover:bg-subtle text-muted-foreground hover:text-foreground cursor-pointer"
                 title="Add Subtopic"
               >
                 <Plus className="w-3 h-3" />
@@ -255,7 +255,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                 e.stopPropagation();
                 setActiveMenuId(activeMenuId === item.id ? null : item.id);
               }}
-              className="w-5 h-5 flex items-center justify-center rounded hover:bg-subtle text-muted-foreground hover:text-foreground cursor-pointer"
+              className="w-5 h-5 flex items-center justify-center rounded-sm hover:bg-subtle text-muted-foreground hover:text-foreground cursor-pointer"
               title="Options"
             >
               <MoreHorizontal className="w-3 h-3" />
@@ -288,7 +288,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
             className="flex items-center gap-1.5 py-1 pr-2"
             style={{ paddingLeft: `${Math.max((level + 1) * 14 + 4, 18)}px` }}
           >
-            <CornerDownRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <CornerDownRight className="w-3 h-3 text-muted-foreground shrink-0" />
             <input
               type="text"
               autoFocus
@@ -299,18 +299,18 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                 if (e.key === "Escape") setAddingSubtopicToId(null);
               }}
               placeholder="New subtopic title..."
-              className="flex-1 px-2 py-0.5 text-xs bg-card text-foreground border border-border rounded outline-none focus:border-accent font-manrope"
+              className="flex-1 px-2 py-0.5 text-xs bg-card text-foreground border border-border rounded-sm outline-hidden focus:border-accent font-manrope"
             />
             <button
               onClick={() => handleCreateSubtopic(item.id)}
-              className="p-1 text-emerald-600 hover:bg-emerald-500/10 rounded cursor-pointer"
+              className="p-1 text-emerald-600 hover:bg-emerald-500/10 rounded-sm cursor-pointer"
               title="Add"
             >
               <Check className="w-3 h-3" />
             </button>
             <button
               onClick={() => setAddingSubtopicToId(null)}
-              className="p-1 text-muted-foreground hover:bg-subtle rounded cursor-pointer"
+              className="p-1 text-muted-foreground hover:bg-subtle rounded-sm cursor-pointer"
               title="Cancel"
             >
               <X className="w-3 h-3" />
@@ -323,7 +323,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
           <div className="relative pl-3">
             {/* Tree guide vertical line */}
             <div
-              className="absolute top-0 bottom-1 w-[1px] bg-border"
+              className="absolute top-0 bottom-1 w-px bg-border"
               style={{ left: `${Math.max(level * 14 + 11, 10)}px` }}
             />
             <div className="space-y-0.5">
@@ -380,7 +380,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                     }
                   }}
                   placeholder={searchPlaceholder}
-                  className="w-full pl-7 pr-6 py-1 text-xs bg-subtle/80 border border-border rounded-full outline-none focus:border-accent font-manrope text-foreground placeholder-muted-foreground transition-all shadow-2xs"
+                  className="w-full pl-7 pr-6 py-1 text-xs bg-subtle/80 border border-border rounded-full outline-hidden focus:border-accent font-manrope text-foreground placeholder-muted-foreground transition-all shadow-2xs"
                 />
                 {activeSearchQuery && (
                   <button
@@ -465,18 +465,18 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                     if (e.key === "Escape") setIsAddingRoot(false);
                   }}
                   placeholder="New module or unit title..."
-                  className="flex-1 px-2.5 py-1 text-xs bg-card text-foreground border border-border rounded-lg outline-none focus:border-accent font-manrope"
+                  className="flex-1 px-2.5 py-1 text-xs bg-card text-foreground border border-border rounded-lg outline-hidden focus:border-accent font-manrope"
                 />
                 <button
                   onClick={handleCreateRootTopic}
-                  className="p-1 text-emerald-600 hover:bg-emerald-500/10 rounded cursor-pointer"
+                  className="p-1 text-emerald-600 hover:bg-emerald-500/10 rounded-sm cursor-pointer"
                   title="Add"
                 >
                   <Check className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => setIsAddingRoot(false)}
-                  className="p-1 text-muted-foreground hover:bg-subtle rounded cursor-pointer"
+                  className="p-1 text-muted-foreground hover:bg-subtle rounded-sm cursor-pointer"
                   title="Cancel"
                 >
                   <X className="w-3.5 h-3.5" />

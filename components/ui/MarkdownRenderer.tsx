@@ -57,7 +57,7 @@ const customComponents: Components = {
     </blockquote>
   ),
   pre: ({ children }) => (
-    <pre className="p-3.5 my-3 rounded-xl bg-neutral-900 text-neutral-100 font-mono text-xs overflow-x-auto leading-relaxed border border-border shadow-xs">
+    <pre className="p-3.5 my-3 rounded-xl bg-neutral-900 text-neutral-100 font-mono text-xs overflow-x-auto leading-relaxed border border-border shadow-2xs">
       {children}
     </pre>
   ),
@@ -66,7 +66,7 @@ const customComponents: Components = {
     if (isInline) {
       return (
         <code
-          className="px-1.5 py-0.5 rounded bg-subtle border border-border font-mono text-[11px] text-foreground font-medium"
+          className="px-1.5 py-0.5 rounded-sm bg-subtle border border-border font-mono text-[11px] text-foreground font-medium"
           {...props}
         >
           {children}
@@ -142,7 +142,7 @@ const customComponents: Components = {
                 }
               : undefined
           }
-          className="rounded-xl border border-border max-h-96 object-contain shadow-xs"
+          className="rounded-xl border border-border max-h-96 object-contain shadow-2xs"
         />
       </div>
     );

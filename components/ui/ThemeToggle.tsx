@@ -103,7 +103,7 @@ export const ThemeToggle: React.FC<{ className?: string }> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     {/* Swatch preview */}
-                    <div className="flex items-center -space-x-1 flex-shrink-0">
+                    <div className="flex items-center -space-x-1 shrink-0">
                       <span
                         className="w-3 h-3 rounded-full border border-border"
                         style={{ backgroundColor: theme.swatch[0] }}
@@ -118,7 +118,7 @@ export const ThemeToggle: React.FC<{ className?: string }> = ({
                   </div>
 
                   {isSelected && (
-                    <Check className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                    <Check className="w-3.5 h-3.5 text-accent shrink-0" />
                   )}
                 </button>
               );

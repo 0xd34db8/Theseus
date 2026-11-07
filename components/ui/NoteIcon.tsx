@@ -7,7 +7,7 @@ export const NoteIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-
         viewBox="0 0 16 16"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={`inline-block flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ${className}`}
+        className={`inline-block shrink-0 text-muted-foreground hover:text-foreground transition-colors ${className}`}
       >
         <rect
           x="2.5"

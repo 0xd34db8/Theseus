@@ -181,7 +181,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
     editorProps: {
       attributes: {
         class:
-          "prose max-w-none focus:outline-none min-h-[90px] max-h-[160px] overflow-y-auto text-xs leading-relaxed text-foreground px-3 py-2 font-manrope cursor-text",
+          "prose max-w-none focus:outline-hidden min-h-[90px] max-h-[160px] overflow-y-auto text-xs leading-relaxed text-foreground px-3 py-2 font-manrope cursor-text",
       },
     },
   });
@@ -283,7 +283,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
               onDoubleClick={() => handleStartEdit(comment)}
               className={`p-3 rounded-xl space-y-1.5 text-xs transition-colors group cursor-default ${
                 isCurrentlyEditing
-                  ? "bg-accent-subtle border border-accent/40 ring-1 ring-accent/30 shadow-xs"
+                  ? "bg-accent-subtle border border-accent/40 ring-1 ring-accent/30 shadow-2xs"
                   : "bg-card border border-border shadow-2xs hover:border-border"
               }`}
               title="Double-click to edit"
@@ -299,13 +299,13 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
                       {comment.timestamp}
                     </span>
                     {isCurrentlyEditing && (
-                      <span className="text-[10px] font-medium text-accent bg-accent-subtle px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-medium text-accent bg-accent-subtle px-1.5 py-0.5 rounded-sm">
                         Editing
                       </span>
                     )}
                   </div>
                 )}
-                <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+                <div className="flex items-center gap-1 shrink-0 ml-auto">
                   {comment.author && comment.author.trim() && (
                     <span className="text-[10px] text-muted-foreground mr-1">
                       {comment.timestamp}
@@ -333,7 +333,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
                       e.stopPropagation();
                       handleDeleteSubComment(comment.id);
                     }}
-                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity cursor-pointer p-1 rounded hover:bg-subtle"
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity cursor-pointer p-1 rounded-sm hover:bg-subtle"
                     title="Delete sub-section"
                     aria-label="Delete sub-section"
                   >
@@ -351,7 +351,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
 
       {/* Bottom Composer Dock with TipTap Live Markdown Editor & Complete Toolbar */}
       {isAdding ? (
-        <div className="border-t border-border bg-card flex flex-col flex-shrink-0 animate-in slide-in-from-bottom-2 duration-150">
+        <div className="border-t border-border bg-card flex flex-col shrink-0 animate-in slide-in-from-bottom-2 duration-150">
           <EditorToolbar
             editor={editor}
             compact
@@ -382,7 +382,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
               <button
                 type="button"
                 onClick={handleCloseAddForm}
-                className="px-2.5 py-1 rounded text-muted-foreground hover:bg-card text-xs cursor-pointer transition-colors"
+                className="px-2.5 py-1 rounded-sm text-muted-foreground hover:bg-card text-xs cursor-pointer transition-colors"
               >
                 Cancel
               </button>
@@ -397,7 +397,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
           </div>
         </div>
       ) : (
-        <div className="p-2.5 border-t border-border-subtle bg-card flex items-center justify-between flex-shrink-0">
+        <div className="p-2.5 border-t border-border-subtle bg-card flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={handleOpenAddForm}

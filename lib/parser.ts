@@ -324,8 +324,6 @@ export function serializeSyllabusToJson(
   return JSON.stringify(cleanedItems, null, 2);
 }
 
-export { highlightJson } from "@/components/editor/JsonTreeEditor";
-
 /**
  * Fault-tolerant JSON parser for syllabus editing.
  * Checks strict JSON validity. If invalid, repairs unclosed quotes/brackets, trailing commas,

@@ -258,7 +258,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     editorProps: {
       attributes: {
         class:
-          "prose max-w-none focus:outline-none min-h-[350px] text-sm leading-relaxed text-foreground",
+          "prose max-w-none focus:outline-hidden min-h-[350px] text-sm leading-relaxed text-foreground",
       },
       handlePaste: (view, event) => {
         // 1. Direct image paste from clipboard via Ctrl+V
@@ -628,7 +628,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 }}
                 onBlur={handleSaveTitle}
                 autoFocus
-                className="text-2xl md:text-3xl font-light text-foreground tracking-tight text-center bg-transparent border-b-2 border-accent focus:outline-none px-2 py-0.5 w-full font-manrope"
+                className="text-2xl md:text-3xl font-light text-foreground tracking-tight text-center bg-transparent border-b-2 border-accent focus:outline-hidden px-2 py-0.5 w-full font-manrope"
               />
             </div>
           ) : (
@@ -644,7 +644,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <h2 className="text-2xl md:text-3xl font-light text-foreground tracking-tight truncate">
                 {selectedTopic.title}
               </h2>
-              <Edit3 className="w-4 h-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+              <Edit3 className="w-4 h-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             </button>
           )}
 
@@ -667,14 +667,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   };
                   onSaveNote(selectedTopic.id, newNote);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-full text-xs font-medium shadow-sm transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-full text-xs font-medium shadow-xs transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Create Note</span>
               </button>
 
               {/* Two-in-one button: Generate with AI + Copy Prompt */}
-              <div className="inline-flex items-center rounded-full bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-sm transition-all overflow-hidden text-xs font-medium">
+              <div className="inline-flex items-center rounded-full bg-linear-to-r from-green-600 to-emerald-600 text-white shadow-xs transition-all overflow-hidden text-xs font-medium">
                 <button
                   type="button"
                   onClick={handleAiGenerateNotes}
@@ -713,7 +713,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
             {aiError && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-500 flex items-start gap-2 text-left">
-                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <span>{aiError}</span>
                   <div>
@@ -776,7 +776,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               onChange={(e) =>
                 onUpdateStatus(selectedTopic.id, e.target.value as TopicStatus)
               }
-              className={`appearance-none text-xs font-medium py-1 pl-2.5 pr-5 rounded-full border outline-none cursor-pointer transition-colors ${
+              className={`appearance-none text-xs font-medium py-1 pl-2.5 pr-5 rounded-full border outline-hidden cursor-pointer transition-colors ${
                 selectedTopic.status === "done"
                   ? "bg-status-done-bg border-status-done-border text-status-done-fg"
                   : selectedTopic.status === "partial"
@@ -812,7 +812,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               }}
               onBlur={handleSaveTitle}
               autoFocus
-              className="text-lg sm:text-2xl font-light text-foreground tracking-tight text-center bg-transparent border-b-2 border-accent focus:outline-none px-2 py-0.5 w-full font-manrope"
+              className="text-lg sm:text-2xl font-light text-foreground tracking-tight text-center bg-transparent border-b-2 border-accent focus:outline-hidden px-2 py-0.5 w-full font-manrope"
             />
           </div>
         ) : (
@@ -829,7 +829,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <h2 className="text-base sm:text-xl md:text-2xl font-light text-foreground tracking-tight truncate">
                 {selectedTopic.title}
               </h2>
-              <Edit3 className="w-3.5 h-3.5 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 hidden sm:block" />
+              <Edit3 className="w-3.5 h-3.5 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 hidden sm:block" />
             </button>
           </div>
         )}
@@ -838,7 +838,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2 z-10 shrink-0">
           {/* AI Notes Button: Hidden in Reading Mode */}
           {!isReadingMode && (
-            <div className="inline-flex items-center rounded-full bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-2xs hover:shadow-xs transition-all overflow-hidden text-xs font-medium whitespace-nowrap shrink-0">
+            <div className="inline-flex items-center rounded-full bg-linear-to-r from-green-600 to-emerald-600 text-white shadow-2xs hover:shadow-2xs transition-all overflow-hidden text-xs font-medium whitespace-nowrap shrink-0">
               <button
                 type="button"
                 onClick={handleAiGenerateNotes}
@@ -929,7 +929,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       {!isReadingMode && pendingEmbedUrl && (
         <div className="mx-3 sm:mx-6 md:mx-8 my-2 p-2 sm:p-2.5 rounded-xl bg-accent-subtle border border-accent/30 flex items-center justify-between text-xs animate-in fade-in slide-in-from-top-1">
           <div className="flex items-center gap-2 min-w-0">
-            <ImageIcon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <ImageIcon className="w-4 h-4 text-blue-500 shrink-0" />
             <span className="text-foreground-subtle truncate max-w-[200px] sm:max-w-[280px]">
               Image URL:{" "}
               <span className="font-mono text-foreground">
@@ -937,7 +937,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               </span>
             </span>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={handleEmbedPendingUrl}
@@ -960,7 +960,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       {aiError && (
         <div className="px-4 sm:px-6 md:px-8 py-2 bg-red-500/10 border-b border-red-500/30 flex items-center justify-between text-xs text-red-500">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <span>{aiError}</span>
           </div>
           <button

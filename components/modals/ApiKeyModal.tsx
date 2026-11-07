@@ -186,7 +186,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           <select
             value={provider}
             onChange={(e) => handleProviderChange(e.target.value as LLMProvider)}
-            className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-none focus:border-accent font-manrope cursor-pointer"
+            className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-hidden focus:border-accent font-manrope cursor-pointer"
           >
             <option value="gemini">Google Gemini</option>
             <option value="openai">OpenAI</option>
@@ -210,7 +210,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               onKeyDown={handleKeyDown}
               autoFocus
               placeholder="Paste your API key"
-              className="w-full pl-3.5 pr-10 py-2.5 bg-subtle border border-border rounded-xl text-xs text-foreground placeholder-muted-foreground outline-none focus:border-accent focus:bg-card font-mono"
+              className="w-full pl-3.5 pr-10 py-2.5 bg-subtle border border-border rounded-xl text-xs text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card font-mono"
             />
             <button
               type="button"
@@ -255,7 +255,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 placeholder={getDefaultModelForProvider(provider)}
-                className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-none focus:border-accent font-mono"
+                className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-hidden focus:border-accent font-mono"
               />
             </div>
 
@@ -273,7 +273,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                     ? "http://localhost:11434/v1"
                     : "Default provider endpoint"
                 }
-                className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-none focus:border-accent font-mono"
+                className="w-full px-3 py-2 bg-subtle border border-border rounded-xl text-xs text-foreground outline-hidden focus:border-accent font-mono"
               />
             </div>
           </div>
@@ -308,7 +308,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               {testResult.success ? (
                 <Check className="w-3.5 h-3.5 text-emerald-500" />
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
               )}
               <span className="truncate max-w-[220px]">{testResult.message}</span>
             </div>
@@ -348,7 +348,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary-hover rounded-full transition-all shadow-xs cursor-pointer"
+              className="px-5 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary-hover rounded-full transition-all shadow-2xs cursor-pointer"
             >
               Save Key
             </button>

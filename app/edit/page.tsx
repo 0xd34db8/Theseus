@@ -461,9 +461,9 @@ export default function EditPage() {
           data-tree-pane="true"
           onClickCapture={() => setActivePanel("tree")}
           onFocusCapture={() => setActivePanel("tree")}
-          className={`w-full md:w-80 lg:w-96 xl:w-[380px] flex-shrink-0 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-xs flex flex-col overflow-hidden ${
+          className={`w-full md:w-80 lg:w-96 xl:w-[380px] shrink-0 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-2xs flex flex-col overflow-hidden ${
             activePanel === "tree"
-              ? "border-foreground/30 shadow-sm"
+              ? "border-foreground/30 shadow-xs"
               : "border-border"
           } ${
             mobileTab === "tree" ? "flex" : "hidden md:flex"
@@ -497,9 +497,9 @@ export default function EditPage() {
           data-editor-pane="true"
           onClickCapture={() => setActivePanel("editor")}
           onFocusCapture={() => setActivePanel("editor")}
-          className={`flex-1 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-xs flex flex-col overflow-hidden ${
+          className={`flex-1 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-2xs flex flex-col overflow-hidden ${
             activePanel === "editor"
-              ? "border-foreground/30 shadow-sm"
+              ? "border-foreground/30 shadow-xs"
               : "border-border"
           } ${
             mobileTab === "editor" ? "flex" : "hidden md:flex"
@@ -528,7 +528,7 @@ export default function EditPage() {
       </div>
 
       {/* Website Footer: Status Chip, Subsections Interface, and Controls */}
-      <footer className="border-t border-border-subtle bg-background flex flex-col flex-shrink-0 z-20 font-manrope">
+      <footer className="border-t border-border-subtle bg-background flex flex-col shrink-0 z-20 font-manrope">
         {/* Expandable Sub-sections Drawer */}
         {isSubsectionsOpen && selectedTopic && (
           <SubsectionsDrawer
@@ -548,7 +548,7 @@ export default function EditPage() {
           </div>
 
           {/* Middle: Mobile View Switcher between Syllabus Tree and Note Editor */}
-          <div className="flex md:hidden items-center p-0.5 bg-subtle rounded-full text-xs font-medium shadow-xs">
+          <div className="flex md:hidden items-center p-0.5 bg-subtle rounded-full text-xs font-medium shadow-2xs">
             <button
               type="button"
               onClick={() => {
@@ -593,7 +593,7 @@ export default function EditPage() {
                 !selectedTopic
                   ? "bg-subtle text-muted-foreground border border-border/40 cursor-not-allowed"
                   : isSubsectionsOpen
-                    ? "bg-primary text-primary-foreground border border-transparent shadow-xs"
+                    ? "bg-primary text-primary-foreground border border-transparent shadow-2xs"
                     : "bg-card text-foreground border border-border hover:bg-subtle"
               }`}
               title={

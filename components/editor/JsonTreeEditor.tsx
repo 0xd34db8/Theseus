@@ -341,7 +341,7 @@ export function JsonTreeEditor({
               }
             }}
             placeholder={searchPlaceholder}
-            className="w-full pl-7 pr-6 py-1 text-xs bg-card border border-border rounded-full outline-none focus:border-accent font-manrope text-foreground placeholder-muted-foreground transition-all shadow-2xs"
+            className="w-full pl-7 pr-6 py-1 text-xs bg-card border border-border rounded-full outline-hidden focus:border-accent font-manrope text-foreground placeholder-muted-foreground transition-all shadow-2xs"
           />
           {activeSearchQuery && (
             <button
@@ -369,7 +369,7 @@ export function JsonTreeEditor({
                   <button
                     type="button"
                     onClick={handleFindPrev}
-                    className="p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-card cursor-pointer"
+                    className="p-0.5 text-muted-foreground hover:text-foreground rounded-sm hover:bg-card cursor-pointer"
                     title="Previous match (Shift+Enter)"
                   >
                     <ChevronUp className="w-3 h-3" />
@@ -377,7 +377,7 @@ export function JsonTreeEditor({
                   <button
                     type="button"
                     onClick={handleFindNext}
-                    className="p-0.5 text-muted-foreground hover:text-foreground rounded hover:bg-card cursor-pointer"
+                    className="p-0.5 text-muted-foreground hover:text-foreground rounded-sm hover:bg-card cursor-pointer"
                     title="Next match (Enter)"
                   >
                     <ChevronDown className="w-3 h-3" />
@@ -390,7 +390,7 @@ export function JsonTreeEditor({
           <button
             type="button"
             onClick={handleFormatJson}
-            className="px-2 py-1 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:bg-card rounded transition-colors cursor-pointer"
+            className="px-2 py-1 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:bg-card rounded-sm transition-colors cursor-pointer"
             title="Format JSON indentation"
           >
             Format
@@ -412,7 +412,7 @@ export function JsonTreeEditor({
         <pre
           ref={preRef}
           aria-hidden="true"
-          className="absolute inset-0 pointer-events-none select-none m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap break-words overflow-hidden [tab-size:2]"
+          className="absolute inset-0 pointer-events-none select-none m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word overflow-hidden tab-2"
           dangerouslySetInnerHTML={{
             __html:
               highlightJson(jsonText, isValidJson, activeSearchQuery) +
@@ -427,7 +427,7 @@ export function JsonTreeEditor({
           onKeyDown={handleKeyDown}
           placeholder="Edit syllabus tree JSON here..."
           spellCheck={false}
-          className={`relative w-full h-full m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap break-words bg-transparent outline-none resize-none overflow-y-auto text-transparent selection:text-transparent [tab-size:2] ${
+          className={`relative w-full h-full m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word bg-transparent outline-hidden resize-none overflow-y-auto text-transparent selection:text-transparent tab-2 ${
             isValidJson
               ? "caret-foreground selection:bg-accent-subtle"
               : "caret-red-500 selection:bg-red-500/20"

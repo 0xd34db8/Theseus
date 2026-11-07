@@ -56,7 +56,7 @@ export const RecentFileCard: React.FC<RecentFileCardProps> = ({
         }
         onOpen(file.id);
       }}
-      className="group px-5 py-4 rounded-2xl border border-border hover:border-border-subtle hover:shadow-xs transition-all cursor-pointer bg-subtle hover:bg-card flex items-center justify-between font-manrope"
+      className="group px-5 py-4 rounded-2xl border border-border hover:border-border-subtle hover:shadow-2xs transition-all cursor-pointer bg-subtle hover:bg-card flex items-center justify-between font-manrope"
     >
       <div className="min-w-0 pr-4">
         <h3 className="text-sm font-medium text-foreground truncate group-hover:text-accent transition-colors">
@@ -74,7 +74,7 @@ export const RecentFileCard: React.FC<RecentFileCardProps> = ({
       </div>
 
       {/* Progress Chip */}
-      <div className="flex items-center gap-2.5 flex-shrink-0">
+      <div className="flex items-center gap-2.5 shrink-0">
         <div
           className="px-3 py-1 rounded-full bg-status-done-bg text-status-done-fg border border-status-done-border text-[11px] font-normal tracking-tight shadow-2xs"
           title="Progress (% completed)"
