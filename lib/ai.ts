@@ -281,36 +281,57 @@ export function normalizeItems(
   });
 }
 
-export const SYLLABUS_TREE_SYSTEM_PROMPT = `You are a curriculum parser for the Theseus study application.
-Transform messy or tabular syllabus content into a clean hierarchical tree.
+export const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser for the Theseus study application.**
+**Transform unstructured or tabular syllabus content into a clean hierarchical JSON tree.**
 
-CRITICAL FORMATTING RULES:
-1. Top-Level: Each Unit, Module, or Chapter is a top-level item (e.g. "UNIT I: Introduction to Machine Learning").
-2. Mid-Level: Logical groups, sections, or categories are child items.
-3. Leaf-Level: Break down dense comma-separated or dash-separated lists into clean, distinct subtopic items.
-4. Completeness: NEVER omit any topic from the source syllabus. Preserve all academic concepts mentioned.
-5. Output format: Output strictly valid JSON matching this schema:
+**CRITICAL PARSING & FIDELITY RULES:**
+
+1. **Zero External Knowledge:** You must act strictly as a dumb text extractor. Do NOT add, expand, or hallucinate any topics, subtopics, or details that are not explicitly written in the source document. Do not use your training data to fill in "missing" concepts. If the syllabus lists a broad topic, leave it broad.
+2. **Verbatim Extraction:** Extract the exact Course Title from the document header, and use the exact phrasing for all topics. NEVER generate, guess, or paraphrase text.
+3. **Strict Structural Fidelity (No Invented Taxonomy):** Do NOT invent categories, logical groups, or sub-folders that do not explicitly exist in the source text. If a module consists of a single flat paragraph of topics, extract them as a flat list of sibling items. Never play editor.
+4. **Hierarchy Levels:**
+* **Top-Level:** Each explicitly named Unit, Module, or Chapter is a top-level item (e.g., "UNIT I: Introduction").
+* **Sub-Levels:** Only create nested child items if the text explicitly dictates a parent-child relationship.
+* **Leaf-Level:** Break down dense comma-separated or dash-separated text blocks into clean, distinct individual topic items.
+
+5. **Completeness:** NEVER omit any conceptual topic from the source syllabus. Preserve all academic concepts mentioned.`;
+
+export const CORE_SYLLABUS_FILTER_RULE = `**CORE SYLLABUS ONLY RULE:**
+
+* Focus exclusively on the core curriculum, units, modules, chapters, and conceptual topics.
+* STRICTLY IGNORE and EXCLUDE all non-core sections such as lab components, practical experiments, course outcomes, learning objectives, textbooks/reference book lists, grading schemes, evaluation rubrics, and exam patterns.`;
+
+export const SYLLABUS_TREE_OUTPUT_SCHEMA = `**OUTPUT SCHEMA:**
+Output STRICTLY valid, parsed JSON matching this exact schema. Do not include markdown formatting blocks (like \`\`\`json), preambles, or postscripts. Just the raw JSON object:
 {
-  "courseTitle": "Course / Subject Title",
+  "courseTitle": "Exact Course Title Extracted from Document",
   "items": [
     {
-      "title": "UNIT I/Module 1: ...",
+      "title": "Module 1: ...",
       "children": [
         {
-          "title": "Section / Topic Group",
+          "title": "Exact Section Name from Text",
           "children": [
-            { "title": "Subtopic A" },
-            { "title": "Subtopic B" }
+            { "title": "Individual Subtopic A" },
+            { "title": "Individual Subtopic B" }
           ]
-        }
+        },
+        { "title": "Standalone Topic C" }
       ]
     }
   ]
 }`;
 
-export const CORE_SYLLABUS_FILTER_RULE = `CORE SYLLABUS ONLY RULE:
-- Focus exclusively on the core curriculum, units, modules, chapters, and conceptual topics.
-- STRICTLY IGNORE and EXCLUDE all non-core sections such as lab components, practical experiments, course outcomes, learning objectives, textbooks/reference book lists, grading schemes, evaluation rubrics, and exam patterns.`;
+export function buildSyllabusTreePrompt(coreOnly = true): string {
+  const sections = [SYLLABUS_PARSER_BASE_RULES];
+  if (coreOnly) {
+    sections.push(CORE_SYLLABUS_FILTER_RULE);
+  }
+  sections.push(SYLLABUS_TREE_OUTPUT_SCHEMA);
+  return sections.join("\n\n");
+}
+
+export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt(true);
 
 /**
  * Generates a prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
@@ -321,10 +342,7 @@ export function getSyllabusTreePrompt(options?: {
   coreOnly?: boolean;
 }): string {
   const isCoreOnly = options?.coreOnly !== false;
-  let basePrompt = SYLLABUS_TREE_SYSTEM_PROMPT;
-  if (isCoreOnly) {
-    basePrompt = `${basePrompt}\n\n${CORE_SYLLABUS_FILTER_RULE}`;
-  }
+  const basePrompt = buildSyllabusTreePrompt(isCoreOnly);
 
   if (options?.rawText && options.rawText.trim()) {
     return `${basePrompt}\n\nSyllabus Content:\n\n${options.rawText.trim()}`;
@@ -382,13 +400,11 @@ export async function formatSyllabusWithAI(
   configOrKey?: string | AIConfig,
 ): Promise<SyllabusData> {
   const isCoreOnly = options.coreOnly !== false;
-  const systemPrompt = isCoreOnly
-    ? `${SYLLABUS_TREE_SYSTEM_PROMPT}\n\n${CORE_SYLLABUS_FILTER_RULE}`
-    : SYLLABUS_TREE_SYSTEM_PROMPT;
+  const systemPrompt = buildSyllabusTreePrompt(isCoreOnly);
 
   const userPrompt = options.text
     ? `Syllabus Content:\n\n${options.text}`
-    : "Please parse the attached document into the structured syllabus format in a code block.";
+    : "Please parse the attached document into the structured syllabus format.";
 
   const rawJson = await callUniversalLLM(
     {
