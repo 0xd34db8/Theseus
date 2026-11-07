@@ -102,7 +102,8 @@ export default function HomePage() {
 
   // Process pasted text: parses syllabus JSON, saves it, and opens the editor
   const processPastedText = (text: string): boolean => {
-    if (!text || typeof text !== "string" || isProcessingPasteRef.current) return false;
+    if (!text || typeof text !== "string" || isProcessingPasteRef.current)
+      return false;
     const syllabusData = tryParseSyllabusJson(text, syllabusName);
     if (syllabusData) {
       isProcessingPasteRef.current = true;
@@ -150,7 +151,10 @@ export default function HomePage() {
         const now = Date.now();
         if (now - lastPasteTimestamp < 1000) return;
 
-        if (navigator.clipboard && typeof navigator.clipboard.readText === "function") {
+        if (
+          navigator.clipboard &&
+          typeof navigator.clipboard.readText === "function"
+        ) {
           try {
             const clipboardText = await navigator.clipboard.readText();
             if (clipboardText && !isProcessingPasteRef.current) {
@@ -420,12 +424,9 @@ export default function HomePage() {
             <div>
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-light text-foreground tracking-tight">
-                  Add New Syllabus
+                  PDF, Word (.docx) or .TXT supported
                 </h2>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                PDF, Word (.docx) or .TXT supported
-              </p>
             </div>
 
             {/* Title input */}
@@ -668,9 +669,6 @@ export default function HomePage() {
               <h2 className="text-xl font-light text-foreground tracking-tight">
                 Recent Files
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Continue where you left off
-              </p>
             </div>
 
             <div className="flex items-center gap-2.5">
