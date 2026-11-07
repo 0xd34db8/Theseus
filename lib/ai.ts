@@ -292,7 +292,7 @@ export const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser
 4. **Hierarchy Levels:**
 * **Top-Level:** Each explicitly named Unit, Module, or Chapter is a top-level item (e.g., "UNIT I: Introduction").
 * **Sub-Levels:** Only create nested child items if the text explicitly dictates a parent-child relationship.
-* **Leaf-Level:** Break down dense comma-separated or dash-separated text blocks into clean, distinct individual topic items.
+* Leaf-Level: You MUST split dense comma-separated or dash-separated lists into individual, distinct subtopic items. Splitting a list into separate JSON items does not violate the verbatim rule.
 
 5. **Completeness:** NEVER omit any conceptual topic from the source syllabus. Preserve all academic concepts mentioned.`;
 

@@ -141,13 +141,39 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onSaveNoteRef.current = onSaveNote;
 
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isProgrammaticUpdateRef = useRef<boolean>(false);
+
+  // Cancel any pending autosave timer whenever topic selection changes or unmounts
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+  }, [selectedTopic?.id]);
 
   const debounceSave = (updatedMarkdown: string) => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
     }
+
+    // Only autosave for an active topic that already has a note
+    const currentTopic = selectedTopicRef.current;
+    if (!currentTopic || !currentTopic.hasNote) return;
+    const targetTopicId = currentTopic.id;
+
     saveTimerRef.current = setTimeout(() => {
-      if (!selectedTopicRef.current) return;
+      // Guard against topic change or topic having no note while debouncing
+      if (
+        !selectedTopicRef.current ||
+        selectedTopicRef.current.id !== targetTopicId ||
+        !selectedTopicRef.current.hasNote
+      ) {
+        return;
+      }
+
       const topic = selectedTopicRef.current;
       const updatedNote: TopicNote = {
         id: topic.note?.id || `note-${topic.id}`,
@@ -293,6 +319,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       },
     },
     onUpdate: ({ editor: ed }) => {
+      if (isProgrammaticUpdateRef.current) return;
       const markdown = getEditorMarkdown(ed);
       setContent(markdown);
       debounceSave(markdown);
@@ -426,13 +453,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       if (editor) {
         const currentMd = getEditorMarkdown(editor);
         if (currentMd !== noteContent) {
-          editor.commands.setContent(noteContent);
+          isProgrammaticUpdateRef.current = true;
+          editor.commands.setContent(noteContent, { emitUpdate: false });
+          isProgrammaticUpdateRef.current = false;
         }
       }
     } else {
       setContent("");
       if (editor) {
-        editor.commands.setContent("");
+        isProgrammaticUpdateRef.current = true;
+        editor.commands.setContent("", { emitUpdate: false });
+        isProgrammaticUpdateRef.current = false;
       }
     }
     setAiError(null);
@@ -514,7 +545,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
       setContent(generated);
       if (editor) {
-        editor.commands.setContent(generated);
+        isProgrammaticUpdateRef.current = true;
+        editor.commands.setContent(generated, { emitUpdate: false });
+        isProgrammaticUpdateRef.current = false;
       }
       handleAutoSave(generated);
     } catch (err: any) {
@@ -549,7 +582,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   }
 
   // Handle "no notes yet" state
-  if (!selectedTopic.hasNote && !content.trim()) {
+  if (!selectedTopic.hasNote) {
     return (
       <div className="h-full flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 font-manrope">
         <div className="w-full flex justify-between items-center text-xs text-neutral-400">
