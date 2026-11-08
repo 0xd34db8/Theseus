@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     ],
   },
   verification: {
-    google: "TBS9TefwJE1O0fK50ljE5LZsGeTHjAN13rjNOM_qtyg",
+    google: "CaeM2PmoY9jYJqQ1ZtJFcVwc-TxgXuCXzqeJDQr9p2c",
   },
   category: "education",
 };
@@ -150,7 +150,7 @@ export default function RootLayout({
       <head>
         <meta
           name="google-site-verification"
-          content="TBS9TefwJE1O0fK50ljE5LZsGeTHjAN13rjNOM_qtyg"
+          content="CaeM2PmoY9jYJqQ1ZtJFcVwc-TxgXuCXzqeJDQr9p2c"
         />
         <script
           type="application/ld+json"
