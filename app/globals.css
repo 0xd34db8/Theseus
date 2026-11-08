@@ -340,9 +340,42 @@ body {
   cursor: pointer;
 }
 
-.ProseMirror {
+.ProseMirror,
+.prose {
   outline: none;
   min-height: 320px;
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-lead: var(--foreground-subtle);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--foreground-subtle);
+  --tw-prose-bullets: var(--foreground-subtle);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--accent);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-code: #f4f4f5;
+  --tw-prose-pre-bg: #18181b;
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border-subtle);
+  color: var(--foreground);
+}
+
+.ProseMirror strong,
+.prose strong,
+.ProseMirror b,
+.prose b {
+  color: var(--foreground) !important;
+  font-weight: 600;
+}
+
+.ProseMirror em,
+.prose em,
+.ProseMirror i,
+.prose i {
+  color: inherit;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
@@ -512,16 +545,59 @@ body {
 
 .ProseMirror dd,
 .theseus-definition-desc {
-  margin-left: 1rem;
-  padding-left: 0.75rem;
-  border-left: 2px solid var(--border);
+  margin-left: 1.5rem;
+  padding-left: 0;
+  border-left: none;
   color: var(--foreground-subtle);
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
 }
 
 /* Footnotes */
+.theseus-footnote-ref {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+  top: -0.45em;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 0 0.15rem;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
+}
+
+.theseus-footnote-ref:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.theseus-footnote-definition {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--foreground-subtle);
+  line-height: 1.6;
+}
+
+.theseus-footnote-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 0.15rem;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.theseus-footnote-body {
+  flex: 1;
+  color: var(--foreground-subtle);
+}
+
 .ProseMirror sup.footnote-ref,
 .ProseMirror sup {
   font-size: 0.75em;
@@ -823,7 +899,83 @@ ul.contains-task-list li[data-checked="true"] > div {
   outline: none;
 }
 
-/* TipTap code block */
+/* TipTap code block & CodeBlockComponent */
+.theseus-code-block-wrapper pre {
+  margin: 0;
+  border: none;
+  background: transparent !important;
+  font-size: 0.8125rem;
+  border-radius: 0;
+}
+
+.theseus-code-block-wrapper pre code {
+  color: inherit;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: inherit;
+  line-height: 1.7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Syntax Highlighting Tokens (Lowlight / Highlight.js) */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #ff7b72;
+  font-weight: 500;
+}
+
+.hljs-string,
+.hljs-meta .hljs-string,
+.hljs-regexp {
+  color: #a5d6ff;
+}
+
+.hljs-title,
+.hljs-title.function_,
+.hljs-section {
+  color: #d2a8ff;
+  font-weight: 600;
+}
+
+.hljs-title.class_,
+.hljs-type,
+.hljs-built_in {
+  color: #ffa657;
+}
+
+.hljs-number,
+.hljs-literal {
+  color: #79c0ff;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.hljs-variable,
+.hljs-params,
+.hljs-template-variable {
+  color: #e6edf3;
+}
+
+.hljs-attr,
+.hljs-attribute {
+  color: #7ee787;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #f2cc60;
+}
+
+.hljs-meta {
+  color: #79c0ff;
+  font-weight: 600;
+}
+
 .ProseMirror pre {
   background: #18181b;
   color: #f4f4f5;

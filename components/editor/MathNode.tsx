@@ -12,11 +12,68 @@ import katex from "katex";
 import { Edit2, Check, X, Trash2, Eye } from "lucide-react";
 
 /**
+ * Sanitizes LaTeX code before rendering in KaTeX:
+ * - Decodes URL encoded strings if needed
+ * - Normalizes doubled backslashes like \\begin, \\end, \\text, etc. to single backslashes
+ * - Fixes matrix / array / cases / aligned row breaks: ensures rows with '&' are separated by \\
+ */
+export function sanitizeLatex(raw: string): string {
+  if (!raw) return "";
+  let s = raw.trim();
+
+  // Decode if URL encoded
+  try {
+    if (s.includes("%")) {
+      s = decodeURIComponent(s);
+    }
+  } catch {}
+
+  // 1. Normalize doubled backslashes before LaTeX keywords / commands
+  s = s.replace(/\\\\+([a-zA-Z]+)/g, "\\$1");
+
+  // 2. Fix matrix / array / cases / aligned environments:
+  // Ensures rows are properly delimited by \\ rather than single \ or plain \n
+  s = s.replace(
+    /(\\begin\{([bBpvV]?matrix|cases|array|aligned?|gathered?)\})([\s\S]*?)(\\end\{\2\})/g,
+    (_, openTag, _envName, body, closeTag) => {
+      const fixedBody = body
+        // Fix single backslash row breaks like ' \ 4 & 5' or ' \\\n'
+        .replace(/([^\\])\\\s+(?=[^&]*&)/g, "$1 \\\\ ")
+        // Fix plain newlines between rows that have '&':
+        .replace(/(&[^&\r\n]+)(\r?\n)(?=\s*[^&\r\n]+&)/g, "$1 \\\\$2");
+
+      return openTag + fixedBody + closeTag;
+    }
+  );
+
+  return s;
+}
+
+/**
  * Transforms math delimiters in an HTML element tree into TipTap-compatible mathNode spans.
  * Used during Markdown parsing and clipboard pasting.
  */
 export function transformMathInElement(element: HTMLElement) {
   if (typeof window === "undefined" || !element) return;
+
+  // 1. Normalize multiline block formulas spanning across <br> or block containers
+  const blockContainers = element.querySelectorAll("p, div, li, blockquote, dd");
+  for (const block of Array.from(blockContainers)) {
+    if (block.innerHTML.includes("$$") || block.innerHTML.includes("\\[")) {
+      const updated = block.innerHTML
+        .replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+          const clean = sanitizeLatex(math.replace(/<br\s*\/?>/gi, "\n").trim());
+          return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
+        })
+        .replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
+          const clean = sanitizeLatex(math.replace(/<br\s*\/?>/gi, "\n").trim());
+          return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
+        });
+      if (updated !== block.innerHTML) {
+        block.innerHTML = updated;
+      }
+    }
+  }
 
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
@@ -89,16 +146,16 @@ export function transformMathInElement(element: HTMLElement) {
 export function MathNodeView(props: any) {
   const { node, updateAttributes, deleteNode, selected } = props;
   const [isEditing, setIsEditing] = useState(false);
-  const [latexInput, setLatexInput] = useState(node.attrs.latex || "");
-  const [isDisplay, setIsDisplay] = useState(node.attrs.display === "yes");
+  const displayMode = node.attrs.display === "yes";
+  const sanitizedLatex = useMemo(() => sanitizeLatex(node.attrs.latex || ""), [node.attrs.latex]);
+  const [latexInput, setLatexInput] = useState(sanitizedLatex);
+  const [isDisplay, setIsDisplay] = useState(displayMode);
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
 
-  const displayMode = node.attrs.display === "yes";
-
   useEffect(() => {
-    setLatexInput(node.attrs.latex || "");
+    setLatexInput(sanitizedLatex);
     setIsDisplay(node.attrs.display === "yes");
-  }, [node.attrs.latex, node.attrs.display]);
+  }, [sanitizedLatex, node.attrs.display]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -108,18 +165,18 @@ export function MathNodeView(props: any) {
 
   const renderedHtml = useMemo(() => {
     try {
-      return katex.renderToString(node.attrs.latex || "", {
+      return katex.renderToString(sanitizedLatex, {
         displayMode,
         throwOnError: false,
       });
     } catch {
       return `<span class="text-rose-500 font-mono text-xs">Invalid LaTeX</span>`;
     }
-  }, [node.attrs.latex, displayMode]);
+  }, [sanitizedLatex, displayMode]);
 
   const previewHtml = useMemo(() => {
     try {
-      return katex.renderToString(latexInput || " ", {
+      return katex.renderToString(sanitizeLatex(latexInput || " "), {
         displayMode: isDisplay,
         throwOnError: false,
       });
@@ -130,7 +187,7 @@ export function MathNodeView(props: any) {
 
   const handleSave = () => {
     updateAttributes({
-      latex: latexInput.trim(),
+      latex: sanitizeLatex(latexInput),
       display: isDisplay ? "yes" : "no",
     });
     setIsEditing(false);
@@ -299,19 +356,15 @@ export const MathNode = TiptapNode.create({
         parseHTML: (element) => {
           const dataLatex = element.getAttribute("data-latex");
           if (dataLatex) {
-            try {
-              return decodeURIComponent(dataLatex);
-            } catch {
-              return dataLatex;
-            }
+            return sanitizeLatex(dataLatex);
           }
           const annotation = element.querySelector(
             'annotation[encoding="application/x-tex"]'
           );
           if (annotation?.textContent) {
-            return annotation.textContent.trim();
+            return sanitizeLatex(annotation.textContent);
           }
-          return element.textContent?.trim() || "";
+          return sanitizeLatex(element.textContent || "");
         },
         renderHTML: (attributes) => ({
           "data-latex": encodeURIComponent(attributes.latex || ""),
@@ -437,7 +490,7 @@ export const MathNode = TiptapNode.create({
       new PasteRule({
         find: /\$\$([\s\S]*?)\$\$/g,
         handler: (props) => {
-          const latex = props.match[1].trim();
+          const latex = sanitizeLatex(props.match[1]);
           props
             .chain()
             .insertContentAt(
@@ -450,7 +503,7 @@ export const MathNode = TiptapNode.create({
       new PasteRule({
         find: /\\\[([\s\S]*?)\\\]/g,
         handler: (props) => {
-          const latex = props.match[1].trim();
+          const latex = sanitizeLatex(props.match[1]);
           props
             .chain()
             .insertContentAt(
@@ -463,7 +516,7 @@ export const MathNode = TiptapNode.create({
       new PasteRule({
         find: /\\\(([\s\S]*?)\\\)/g,
         handler: (props) => {
-          const latex = props.match[1].trim();
+          const latex = sanitizeLatex(props.match[1]);
           props
             .chain()
             .insertContentAt(
@@ -476,7 +529,7 @@ export const MathNode = TiptapNode.create({
       new PasteRule({
         find: /(?<!\$)\$(?!\$)((?:[^$\\\n]|\\.)+?)\$/g,
         handler: (props) => {
-          const latex = props.match[1].trim();
+          const latex = sanitizeLatex(props.match[1]);
           props
             .chain()
             .insertContentAt(
@@ -491,6 +544,18 @@ export const MathNode = TiptapNode.create({
 
   addInputRules() {
     return [
+      new InputRule({
+        find: /^\$\$\s$/,
+        handler: (props) => {
+          props
+            .chain()
+            .insertContentAt(
+              { from: props.range.from, to: props.range.to },
+              { type: this.name, attrs: { latex: "E = mc^2", display: "yes" } }
+            )
+            .run();
+        },
+      }),
       new InputRule({
         find: /\$\$([^\$\n]+)\$\$$/,
         handler: (props) => {

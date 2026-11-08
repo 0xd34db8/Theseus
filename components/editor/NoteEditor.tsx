@@ -39,6 +39,9 @@ import {
   CustomShortcuts,
   CustomTaskList,
   CustomTaskItem,
+  CustomCodeBlock,
+  FootnoteReference,
+  FootnoteDefinition,
   Table,
   TableRow,
   TableHeader,
@@ -193,6 +196,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        link: false,
+        underline: false,
+        codeBlock: false,
         heading: {
           levels: [1, 2, 3, 4, 5, 6],
         },
@@ -205,6 +211,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           keepAttributes: false,
         },
       }),
+      CustomCodeBlock,
+      FootnoteReference,
+      FootnoteDefinition,
       CustomUnderline,
       CustomTaskList,
       CustomTaskItem.configure({
@@ -376,7 +385,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   // Synchronize search query with TipTap search highlighting
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
-    editor.commands.setSearchTerm(searchQuery || "");
+    queueMicrotask(() => {
+      if (!editor.isDestroyed) {
+        editor.commands.setSearchTerm(searchQuery || "");
+      }
+    });
   }, [searchQuery, editor, selectedTopic?.id]);
 
   // Synchronize match count and active index with parent
@@ -454,16 +467,25 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         const currentMd = getEditorMarkdown(editor);
         if (currentMd !== noteContent) {
           isProgrammaticUpdateRef.current = true;
-          editor.commands.setContent(noteContent, { emitUpdate: false });
-          isProgrammaticUpdateRef.current = false;
+          const targetTopicId = selectedTopic.id;
+          queueMicrotask(() => {
+            if (!editor.isDestroyed && selectedTopicRef.current?.id === targetTopicId) {
+              editor.commands.setContent(noteContent, { emitUpdate: false });
+            }
+            isProgrammaticUpdateRef.current = false;
+          });
         }
       }
     } else {
       setContent("");
       if (editor) {
         isProgrammaticUpdateRef.current = true;
-        editor.commands.setContent("", { emitUpdate: false });
-        isProgrammaticUpdateRef.current = false;
+        queueMicrotask(() => {
+          if (!editor.isDestroyed && !selectedTopicRef.current) {
+            editor.commands.setContent("", { emitUpdate: false });
+          }
+          isProgrammaticUpdateRef.current = false;
+        });
       }
     }
     setAiError(null);

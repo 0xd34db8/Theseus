@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-14.2-black?style=flat-square&logo=next.js" alt="Next.js" /></a>
+  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.4.5-black?style=flat-square&logo=next.js" alt="Next.js" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.6-blue?style=flat-square&logo=typescript" alt="TypeScript" /></a>
-  <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind-3.4-38bdf8?style=flat-square&logo=tailwind-css" alt="Tailwind CSS" /></a>
+  <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind-4.3.5-38bdf8?style=flat-square&logo=tailwind-css" alt="Tailwind CSS" /></a>
   <a href="https://tiptap.dev"><img src="https://img.shields.io/badge/TipTap-Editor-000000?style=flat-square" alt="TipTap" /></a>
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
 </p>

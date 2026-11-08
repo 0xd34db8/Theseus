@@ -128,6 +128,8 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        link: false,
+        underline: false,
         heading: {
           levels: [1, 2, 3],
         },
@@ -191,7 +193,11 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
     setEditingCommentId(null);
     setIsAdding(false);
     if (editor) {
-      editor.commands.setContent("");
+      queueMicrotask(() => {
+        if (!editor.isDestroyed) {
+          editor.commands.setContent("");
+        }
+      });
     }
   }, [selectedTopic.id, editor]);
 
