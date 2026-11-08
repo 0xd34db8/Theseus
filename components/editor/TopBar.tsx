@@ -120,7 +120,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   }
 
   const titleElement = (
-    <div className="flex items-center text-base sm:text-xl md:text-2xl font-light tracking-tight text-foreground font-manrope min-w-0">
+    <h1 className="flex items-center text-base sm:text-xl md:text-2xl font-light tracking-tight text-foreground font-manrope min-w-0 m-0">
       {isEditing ? (
         <input
           type="text"
@@ -143,7 +143,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           {fileName}
         </span>
       )}
-    </div>
+    </h1>
   );
 
   const actions = (

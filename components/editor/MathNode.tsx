@@ -9,7 +9,7 @@ import {
 } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import katex from "katex";
-import { Edit2, Check, X, Trash2, Eye } from "lucide-react";
+import { Edit2, Check, X, Trash2 } from "lucide-react";
 
 /**
  * Sanitizes LaTeX code before rendering in KaTeX:
@@ -43,7 +43,7 @@ export function sanitizeLatex(raw: string): string {
         .replace(/(&[^&\r\n]+)(\r?\n)(?=\s*[^&\r\n]+&)/g, "$1 \\\\$2");
 
       return openTag + fixedBody + closeTag;
-    }
+    },
   );
 
   // 3. Fix unescaped underscores, percent signs, and ampersands inside \text{...}, \textbf{...}, \textit{...}, etc.
@@ -56,7 +56,7 @@ export function sanitizeLatex(raw: string): string {
         .replace(/(?<!\\)&/g, "\\&")
         .replace(/(?<!\\)#/g, "\\#");
       return openTag + fixedText + closeTag;
-    }
+    },
   );
 
   // 4. Convert unescaped percent signs after numbers/variables/closing brackets (e.g. 50%) to \%
@@ -73,16 +73,22 @@ export function transformMathInElement(element: HTMLElement) {
   if (typeof window === "undefined" || !element) return;
 
   // 1. Normalize multiline block formulas spanning across <br> or block containers
-  const blockContainers = element.querySelectorAll("p, div, li, blockquote, dd");
+  const blockContainers = element.querySelectorAll(
+    "p, div, li, blockquote, dd",
+  );
   for (const block of Array.from(blockContainers)) {
     if (block.innerHTML.includes("$$") || block.innerHTML.includes("\\[")) {
       const updated = block.innerHTML
         .replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-          const clean = sanitizeLatex(math.replace(/<br\s*\/?>/gi, "\n").trim());
+          const clean = sanitizeLatex(
+            math.replace(/<br\s*\/?>/gi, "\n").trim(),
+          );
           return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
         })
         .replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
-          const clean = sanitizeLatex(math.replace(/<br\s*\/?>/gi, "\n").trim());
+          const clean = sanitizeLatex(
+            math.replace(/<br\s*\/?>/gi, "\n").trim(),
+          );
           return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
         });
       if (updated !== block.innerHTML) {
@@ -118,33 +124,29 @@ export function transformMathInElement(element: HTMLElement) {
 
   for (const textNode of textNodes) {
     const text = textNode.nodeValue || "";
-    if (
-      !text.includes("$") &&
-      !text.includes("\\[") &&
-      !text.includes("\\(")
-    ) {
+    if (!text.includes("$") && !text.includes("\\[") && !text.includes("\\(")) {
       continue;
     }
 
     let modified = text
       .replace(blockDollarRegex, (_, l) => {
         return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(
-          l.trim()
+          l.trim(),
         )}"></span>`;
       })
       .replace(blockBracketRegex, (_, l) => {
         return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(
-          l.trim()
+          l.trim(),
         )}"></span>`;
       })
       .replace(inlineBracketRegex, (_, l) => {
         return `<span data-type="mathNode" data-display="no" data-latex="${encodeURIComponent(
-          l.trim()
+          l.trim(),
         )}"></span>`;
       })
       .replace(inlineDollarRegex, (_, l) => {
         return `<span data-type="mathNode" data-display="no" data-latex="${encodeURIComponent(
-          l.trim()
+          l.trim(),
         )}"></span>`;
       });
 
@@ -163,7 +165,10 @@ export function MathNodeView(props: any) {
   const { node, updateAttributes, deleteNode, selected } = props;
   const [isEditing, setIsEditing] = useState(false);
   const displayMode = node.attrs.display === "yes";
-  const sanitizedLatex = useMemo(() => sanitizeLatex(node.attrs.latex || ""), [node.attrs.latex]);
+  const sanitizedLatex = useMemo(
+    () => sanitizeLatex(node.attrs.latex || ""),
+    [node.attrs.latex],
+  );
   const [latexInput, setLatexInput] = useState(sanitizedLatex);
   const [isDisplay, setIsDisplay] = useState(displayMode);
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
@@ -234,7 +239,6 @@ export function MathNodeView(props: any) {
         <div className="bg-card border border-accent/40 rounded-lg p-3 shadow-lg space-y-2 max-w-lg z-20">
           <div className="flex items-center justify-between gap-2 border-b border-border pb-2 text-xs text-foreground-subtle">
             <span className="font-semibold text-foreground flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5 text-accent" />
               LaTeX Formula Editor
             </span>
             <div className="flex items-center gap-2">
@@ -321,9 +325,7 @@ export function MathNodeView(props: any) {
     <NodeViewWrapper
       as={displayMode ? "div" : "span"}
       className={`group relative ${
-        displayMode
-          ? "theseus-math-block"
-          : "theseus-math-inline"
+        displayMode ? "theseus-math-block" : "theseus-math-inline"
       } ${selected ? "ring-2 ring-accent" : ""}`}
       onDoubleClick={() => setIsEditing(true)}
       title="Double click to edit LaTeX equation"
@@ -351,7 +353,10 @@ export function MathNodeView(props: any) {
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     mathNode: {
-      insertMath: (options?: { latex?: string; display?: boolean }) => ReturnType;
+      insertMath: (options?: {
+        latex?: string;
+        display?: boolean;
+      }) => ReturnType;
     };
   }
 }
@@ -377,7 +382,7 @@ export const MathNode = TiptapNode.create({
             return sanitizeLatex(dataLatex);
           }
           const annotation = element.querySelector(
-            'annotation[encoding="application/x-tex"]'
+            'annotation[encoding="application/x-tex"]',
           );
           if (annotation?.textContent) {
             return sanitizeLatex(annotation.textContent);
@@ -513,7 +518,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "yes" } }
+              { type: this.name, attrs: { latex, display: "yes" } },
             )
             .run();
         },
@@ -526,7 +531,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "yes" } }
+              { type: this.name, attrs: { latex, display: "yes" } },
             )
             .run();
         },
@@ -539,7 +544,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "no" } }
+              { type: this.name, attrs: { latex, display: "no" } },
             )
             .run();
         },
@@ -552,7 +557,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "no" } }
+              { type: this.name, attrs: { latex, display: "no" } },
             )
             .run();
         },
@@ -569,7 +574,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex: "E = mc^2", display: "yes" } }
+              { type: this.name, attrs: { latex: "E = mc^2", display: "yes" } },
             )
             .run();
         },
@@ -582,7 +587,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "yes" } }
+              { type: this.name, attrs: { latex, display: "yes" } },
             )
             .run();
         },
@@ -595,7 +600,7 @@ export const MathNode = TiptapNode.create({
             .chain()
             .insertContentAt(
               { from: props.range.from, to: props.range.to },
-              { type: this.name, attrs: { latex, display: "no" } }
+              { type: this.name, attrs: { latex, display: "no" } },
             )
             .run();
         },
