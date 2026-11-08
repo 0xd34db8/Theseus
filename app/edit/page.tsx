@@ -261,6 +261,46 @@ export default function EditPage() {
     };
   }, []);
 
+  // Update browser tab title like professional tools: "<Open File Name> - Theseus"
+  useEffect(() => {
+    const rawName = syllabus.fileName?.trim();
+    const targetTitle = rawName ? `${rawName} - Theseus` : "Untitled Syllabus - Theseus";
+
+    const syncTitle = () => {
+      if (document.title !== targetTitle) {
+        document.title = targetTitle;
+      }
+      const titleTag = document.querySelector("title");
+      if (titleTag && titleTag.textContent !== targetTitle) {
+        titleTag.textContent = targetTitle;
+      }
+    };
+
+    syncTitle();
+
+    // Next.js App Router HeadManager or router navigation can asynchronously re-apply layout metadata ("Theseus").
+    // A MutationObserver on document.head guarantees that the tab title stays synchronized to "<File Name> - Theseus".
+    const observer = new MutationObserver(() => {
+      syncTitle();
+    });
+
+    const head = document.head;
+    if (head) {
+      observer.observe(head, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+
+    window.addEventListener("focus", syncTitle);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("focus", syncTitle);
+    };
+  }, [syllabus.fileName]);
+
   // Ctrl + S (or Cmd + S) prompts to save / export as .theseus, not .html
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -439,6 +479,11 @@ export default function EditPage() {
 
   return (
     <main className="h-screen w-full bg-background flex flex-col overflow-hidden font-manrope">
+      <title>
+        {syllabus.fileName?.trim()
+          ? `${syllabus.fileName.trim()} - Theseus`
+          : "Untitled Syllabus - Theseus"}
+      </title>
       {/* Top Header Bar */}
       <TopBar
         fileName={syllabus.fileName}
@@ -519,6 +564,7 @@ export default function EditPage() {
             onBackToTree={() => setMobileTab("tree")}
             isActive={activePanel === "editor"}
             searchQuery={editorSearchQuery}
+            onSearchChange={setEditorSearchQuery}
             onSearchMatchChange={setSearchMatchInfo}
             onRegisterSearchActions={(actions) => {
               searchActionsRef.current = actions;

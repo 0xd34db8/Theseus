@@ -46,6 +46,22 @@ export function sanitizeLatex(raw: string): string {
     }
   );
 
+  // 3. Fix unescaped underscores, percent signs, and ampersands inside \text{...}, \textbf{...}, \textit{...}, etc.
+  s = s.replace(
+    /(\\text(?:bf|it|sf|tt|normal)?\{)([^{}]*?)(\})/g,
+    (_, openTag, innerText, closeTag) => {
+      const fixedText = innerText
+        .replace(/(?<!\\)_/g, "\\_")
+        .replace(/(?<!\\)%/g, "\\%")
+        .replace(/(?<!\\)&/g, "\\&")
+        .replace(/(?<!\\)#/g, "\\#");
+      return openTag + fixedText + closeTag;
+    }
+  );
+
+  // 4. Convert unescaped percent signs after numbers/variables/closing brackets (e.g. 50%) to \%
+  s = s.replace(/([0-9a-zA-Z\)\}\]])\s*%(?!\n)/g, "$1\\%");
+
   return s;
 }
 
@@ -168,6 +184,7 @@ export function MathNodeView(props: any) {
       return katex.renderToString(sanitizedLatex, {
         displayMode,
         throwOnError: false,
+        strict: false,
       });
     } catch {
       return `<span class="text-rose-500 font-mono text-xs">Invalid LaTeX</span>`;
@@ -179,6 +196,7 @@ export function MathNodeView(props: any) {
       return katex.renderToString(sanitizeLatex(latexInput || " "), {
         displayMode: isDisplay,
         throwOnError: false,
+        strict: false,
       });
     } catch {
       return `<span class="text-rose-500 font-mono text-xs">Invalid LaTeX</span>`;

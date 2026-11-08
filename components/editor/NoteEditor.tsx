@@ -31,6 +31,8 @@ import {
   ImageIcon,
   BookOpen,
   ChevronDown,
+  ChevronUp,
+  Search,
 } from "lucide-react";
 import {
   CustomImage,
@@ -69,6 +71,7 @@ interface NoteEditorProps {
   onBackToTree?: () => void;
   isActive?: boolean;
   searchQuery?: string;
+  onSearchChange?: (query: string) => void;
   onSearchMatchChange?: (info: { current: number; total: number } | null) => void;
   onRegisterSearchActions?: (actions: {
     findNext: () => void;
@@ -87,6 +90,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onBackToTree,
   isActive = false,
   searchQuery,
+  onSearchChange,
   onSearchMatchChange,
   onRegisterSearchActions,
 }) => {
@@ -103,10 +107,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [pendingEmbedUrl, setPendingEmbedUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isReadingMode, setIsReadingMode] = useState<boolean>(false);
+  const [isFullscreenSearchOpen, setIsFullscreenSearchOpen] = useState<boolean>(false);
+  const [localSearchMatchInfo, setLocalSearchMatchInfo] = useState<{ current: number; total: number } | null>(null);
+  const fullscreenSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Fullscreen toggle & Escape key listener
   const toggleFullscreen = () => {
-    setIsFullscreen((prev) => !prev);
+    setIsFullscreen((prev) => {
+      const next = !prev;
+      if (!next) {
+        setIsFullscreenSearchOpen(false);
+      }
+      return next;
+    });
   };
 
   const toggleReadingMode = () => {
@@ -115,21 +128,48 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   const handleClose = () => {
     setIsFullscreen(false);
+    setIsFullscreenSearchOpen(false);
     setIsReadingMode(false);
     onClose();
   };
 
+  // Keyboard shortcut listener for Fullscreen Ctrl+F / Cmd+F and Escape
   useEffect(() => {
-    if (!isFullscreen) return;
+    if (!isFullscreen) {
+      setIsFullscreenSearchOpen(false);
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F or Cmd+F: Reveal and focus editor search bar in fullscreen
+      if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsFullscreenSearchOpen(true);
+        setTimeout(() => {
+          fullscreenSearchInputRef.current?.focus();
+          fullscreenSearchInputRef.current?.select();
+        }, 30);
+        return;
+      }
+
+      // Escape key: close search bar first if open; otherwise exit fullscreen
       if (e.key === "Escape") {
+        if (isFullscreenSearchOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsFullscreenSearchOpen(false);
+          onSearchChange?.("");
+          return;
+        }
         e.preventDefault();
         setIsFullscreen(false);
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen]);
+  }, [isFullscreen, isFullscreenSearchOpen, onSearchChange]);
 
   // AI Generation State
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
@@ -392,12 +432,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     });
   }, [searchQuery, editor, selectedTopic?.id]);
 
-  // Synchronize match count and active index with parent
+  // Synchronize match count and active index with parent and local state
   useEffect(() => {
     if (!editor || editor.isDestroyed || !selectedTopic?.hasNote) {
       if (searchQuery && searchQuery.trim()) {
-        onSearchMatchChange?.({ current: 0, total: 0 });
+        const info = { current: 0, total: 0 };
+        setLocalSearchMatchInfo(info);
+        onSearchMatchChange?.(info);
       } else {
+        setLocalSearchMatchInfo(null);
         onSearchMatchChange?.(null);
       }
       return;
@@ -406,14 +449,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     if (searchQuery && searchQuery.trim()) {
       const pluginState = SearchHighlightPluginKey.getState(editor.state);
       if (pluginState && pluginState.matches.length > 0) {
-        onSearchMatchChange?.({
+        const info = {
           current: pluginState.currentIndex + 1,
           total: pluginState.matches.length,
-        });
+        };
+        setLocalSearchMatchInfo(info);
+        onSearchMatchChange?.(info);
       } else {
-        onSearchMatchChange?.({ current: 0, total: 0 });
+        const info = { current: 0, total: 0 };
+        setLocalSearchMatchInfo(info);
+        onSearchMatchChange?.(info);
       }
     } else {
+      setLocalSearchMatchInfo(null);
       onSearchMatchChange?.(null);
     }
   }, [
@@ -858,6 +906,89 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
         {/* Right Actions: AI Notes + Reading Mode + Fullscreen & Close */}
         <div className="flex items-center gap-1.5 sm:gap-2 z-10 shrink-0">
+          {/* Fullscreen Search Bar: Kept hidden until Ctrl+F / Cmd+F is pressed */}
+          {isFullscreen && isFullscreenSearchOpen && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-card border border-border rounded-full shadow-xs transition-all animate-in fade-in zoom-in-95 duration-150">
+              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <input
+                ref={fullscreenSearchInputRef}
+                type="text"
+                value={searchQuery || ""}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                      editor?.commands.prevSearchMatch();
+                    } else {
+                      editor?.commands.nextSearchMatch();
+                    }
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsFullscreenSearchOpen(false);
+                    onSearchChange?.("");
+                  }
+                }}
+                placeholder="Find in note..."
+                aria-label="Find in note"
+                className="w-32 xs:w-40 sm:w-48 lg:w-56 text-xs bg-transparent text-foreground placeholder-muted-foreground outline-hidden font-manrope"
+              />
+
+              {searchQuery ? (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {localSearchMatchInfo && (
+                    <span className="text-[10px] text-muted-foreground font-mono select-none px-1">
+                      {localSearchMatchInfo.total > 0
+                        ? `${localSearchMatchInfo.current}/${localSearchMatchInfo.total}`
+                        : "0/0"}
+                    </span>
+                  )}
+                  {localSearchMatchInfo && localSearchMatchInfo.total > 1 && (
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => editor?.commands.prevSearchMatch()}
+                        className="p-0.5 text-muted-foreground hover:text-foreground rounded-xs hover:bg-subtle cursor-pointer"
+                        title="Previous match (Shift+Enter)"
+                      >
+                        <ChevronUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => editor?.commands.nextSearchMatch()}
+                        className="p-0.5 text-muted-foreground hover:text-foreground rounded-xs hover:bg-subtle cursor-pointer"
+                        title="Next match (Enter)"
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onSearchChange?.("")}
+                    className="p-0.5 text-muted-foreground hover:text-foreground rounded-full hover:bg-subtle cursor-pointer transition-colors"
+                    title="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFullscreenSearchOpen(false);
+                  onSearchChange?.("");
+                }}
+                className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-subtle cursor-pointer ml-0.5 shrink-0"
+                title="Close search (Esc)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* AI Notes Button: Hidden in Reading Mode */}
           {!isReadingMode && (
             <div className="inline-flex items-center rounded-full bg-linear-to-r from-green-600 to-emerald-600 text-white shadow-2xs hover:shadow-2xs transition-all overflow-hidden text-xs font-medium whitespace-nowrap shrink-0">

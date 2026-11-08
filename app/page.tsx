@@ -58,6 +58,10 @@ export default function HomePage() {
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    document.title = "Theseus";
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (undoTimerRef.current) {
         clearTimeout(undoTimerRef.current);
@@ -413,6 +417,7 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen lg:h-screen w-full bg-background flex flex-col overflow-y-auto lg:overflow-hidden font-manrope">
+      <title>Theseus</title>
       {/* Unified Window Header */}
       <AppHeader actions={headerActions} />
 
