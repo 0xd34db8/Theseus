@@ -249,9 +249,7 @@ interface FormatSyllabusOptions {
   };
   preferredTitle?: string;
   coreOnly?: boolean;
-  verbatim?: boolean;
   nonVerbatim?: boolean;
-  flexible?: boolean;
 }
 
 interface RawAiItem {
@@ -352,37 +350,12 @@ CRITICAL FORMATTING RULES:
   ]
 }`;
 
-// Backwards-compatible alias
-export const LEGACY_SYLLABUS_TREE_PROMPT = NON_VERBATIM_SYLLABUS_TREE_PROMPT;
-
-export function buildSyllabusTreePrompt(
-  coreOnlyOrOptions:
-    | boolean
-    | {
-        coreOnly?: boolean;
-        verbatim?: boolean;
-        nonVerbatim?: boolean;
-        flexible?: boolean;
-      } = true,
-  nonVerbatimArg = false,
-): string {
-  let isCoreOnly = true;
-  let isNonVerbatim = false;
-
-  if (typeof coreOnlyOrOptions === "object" && coreOnlyOrOptions !== null) {
-    isCoreOnly = coreOnlyOrOptions.coreOnly !== false;
-    isNonVerbatim =
-      coreOnlyOrOptions.nonVerbatim === true ||
-      coreOnlyOrOptions.verbatim === false ||
-      coreOnlyOrOptions.flexible === true;
-  } else {
-    if (typeof coreOnlyOrOptions === "boolean") {
-      isCoreOnly = coreOnlyOrOptions;
-    }
-    if (typeof nonVerbatimArg === "boolean") {
-      isNonVerbatim = nonVerbatimArg;
-    }
-  }
+export function buildSyllabusTreePrompt(options?: {
+  coreOnly?: boolean;
+  nonVerbatim?: boolean;
+}): string {
+  const isCoreOnly = options?.coreOnly !== false;
+  const isNonVerbatim = options?.nonVerbatim === true;
 
   if (isNonVerbatim) {
     const sections = [NON_VERBATIM_SYLLABUS_TREE_PROMPT];
@@ -400,7 +373,7 @@ export function buildSyllabusTreePrompt(
   return sections.join("\n\n");
 }
 
-export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt(true);
+export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt({ coreOnly: true });
 
 /**
  * Generates a prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
@@ -409,15 +382,10 @@ export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt(true);
 export function getSyllabusTreePrompt(options?: {
   rawText?: string;
   coreOnly?: boolean;
-  verbatim?: boolean;
   nonVerbatim?: boolean;
-  flexible?: boolean;
 }): string {
   const isCoreOnly = options?.coreOnly !== false;
-  const isNonVerbatim =
-    options?.nonVerbatim === true ||
-    options?.verbatim === false ||
-    options?.flexible === true;
+  const isNonVerbatim = options?.nonVerbatim === true;
   const basePrompt = buildSyllabusTreePrompt({
     coreOnly: isCoreOnly,
     nonVerbatim: isNonVerbatim,
@@ -479,10 +447,7 @@ export async function formatSyllabusWithAI(
   configOrKey?: string | AIConfig,
 ): Promise<SyllabusData> {
   const isCoreOnly = options.coreOnly !== false;
-  const isNonVerbatim =
-    options.nonVerbatim === true ||
-    options.verbatim === false ||
-    options.flexible === true;
+  const isNonVerbatim = options.nonVerbatim === true;
   const systemPrompt = buildSyllabusTreePrompt({
     coreOnly: isCoreOnly,
     nonVerbatim: isNonVerbatim,

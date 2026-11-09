@@ -25,6 +25,7 @@ import { formatSyllabusWithAI, getSyllabusTreePrompt } from "@/lib/ai";
 import { processSyllabusFile } from "@/lib/fileUtils";
 import { SyllabusData } from "@/types/syllabus";
 import { SliderToggle } from "@/components/ui/SliderToggle";
+import { TooltipBubble } from "@/components/ui/TooltipBubble";
 import {
   Upload,
   ArrowRight,
@@ -57,18 +58,9 @@ export default function HomePage() {
     file: SyllabusData;
     index: number;
   } | null>(null);
-  const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     document.title = "Theseus";
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (undoTimerRef.current) {
-        clearTimeout(undoTimerRef.current);
-      }
-    };
   }, []);
 
   // AI & Processing state
@@ -211,12 +203,6 @@ export default function HomePage() {
         file: deletedFile,
         index: fileIndex >= 0 ? fileIndex : 0,
       });
-      if (undoTimerRef.current) {
-        clearTimeout(undoTimerRef.current);
-      }
-      undoTimerRef.current = setTimeout(() => {
-        setLastDeletedSyllabus(null);
-      }, 10000);
     }
     const updated = deleteSyllabus(id);
     setSyllabi(updated);
@@ -225,9 +211,6 @@ export default function HomePage() {
   const handleUndoDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!lastDeletedSyllabus) return;
-    if (undoTimerRef.current) {
-      clearTimeout(undoTimerRef.current);
-    }
     const updated = restoreSyllabus(
       lastDeletedSyllabus.file,
       lastDeletedSyllabus.index,
@@ -434,8 +417,8 @@ export default function HomePage() {
             {/* Unified Ingestion Area: Vertical Mode Dock (Left) + Dropzone / Text Area (Right) */}
             <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-4 xl:gap-5">
               {/* Left Dock: Pill Selector & Copy Prompt */}
-              <div className="w-8 sm:w-8.5 lg:w-12 xl:w-13 flex flex-col items-center gap-1.5 lg:gap-2.5 shrink-0 select-none">
-                <div className="w-full rounded-full bg-subtle border border-border/80 p-0.5 lg:p-1.5 flex flex-col items-center gap-1 lg:gap-2 shadow-2xs">
+              <div className="flex flex-col items-start gap-1.5 lg:gap-2.5 shrink-0 select-none">
+                <div className="w-8 sm:w-8.5 lg:w-12 xl:w-13 rounded-full bg-subtle border border-border/80 p-0.5 lg:p-1.5 flex flex-col items-center gap-1 lg:gap-2 shadow-2xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -477,22 +460,28 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCopyTreePrompt}
-                  title="Copy prompt to attach syllabus and generate tree JSON in ChatGPT, Claude, Gemini, etc."
-                  className="w-full py-1 lg:py-2 min-h-[26px] lg:min-h-[40px] xl:min-h-[44px] bg-subtle hover:bg-card border border-border/80 rounded-lg sm:rounded-xl lg:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer group shadow-2xs"
-                >
-                  {hasCopiedTreePrompt ? (
-                    <Check className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5 text-emerald-500" />
-                  ) : (
-                    <span className="text-[7.5px] sm:text-[8px] lg:text-[9.5px] xl:text-[10px] font-semibold leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center text-muted-foreground group-hover:text-foreground tracking-tight select-none">
-                      Copy
-                      <br />
-                      Prompt
-                    </span>
-                  )}
-                </button>
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleCopyTreePrompt}
+                    title="Copy prompt to attach syllabus and generate tree JSON in ChatGPT, Claude, Gemini, etc."
+                    className="w-8 sm:w-8.5 lg:w-12 xl:w-13 py-1 lg:py-2 min-h-[26px] lg:min-h-[40px] xl:min-h-[44px] bg-subtle hover:bg-card border border-border/80 rounded-lg sm:rounded-xl lg:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer group shadow-2xs"
+                  >
+                    {hasCopiedTreePrompt ? (
+                      <Check className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5 text-emerald-500" />
+                    ) : (
+                      <span className="text-[7.5px] sm:text-[8px] lg:text-[9.5px] xl:text-[10px] font-semibold leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center text-muted-foreground group-hover:text-foreground tracking-tight select-none">
+                        Copy
+                        <br />
+                        Prompt
+                      </span>
+                    )}
+                  </button>
+                  <TooltipBubble
+                    align="left"
+                    content="Copies an AI prompt to clipboard. Paste it into ChatGPT, Claude, or Gemini alongside your syllabus file to generate Theseus-compatible JSON."
+                  />
+                </div>
               </div>
 
               {/* Upload Drop Zone or Text Area */}

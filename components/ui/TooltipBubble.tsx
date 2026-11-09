@@ -7,12 +7,14 @@ interface TooltipBubbleProps {
   content: string | React.ReactNode;
   children?: React.ReactNode;
   className?: string;
+  align?: "center" | "left" | "right";
 }
 
 export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
   content,
   children,
   className = "",
+  align = "center",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -55,6 +57,20 @@ export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
     setIsOpen((prev) => !prev);
   };
 
+  const bubbleAlignmentClass =
+    align === "left"
+      ? "-left-3 sm:-left-4"
+      : align === "right"
+        ? "-right-3 sm:-right-4"
+        : "left-1/2 -translate-x-1/2";
+
+  const beakAlignmentClass =
+    align === "left"
+      ? "left-[21px] -translate-x-1/2"
+      : align === "right"
+        ? "right-[21px] translate-x-1/2"
+        : "left-1/2 -translate-x-1/2";
+
   return (
     <div
       ref={containerRef}
@@ -75,13 +91,13 @@ export const TooltipBubble: React.FC<TooltipBubbleProps> = ({
       {isVisible && (
         <div
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 w-60 sm:w-64 max-w-[280px] p-3 rounded-2xl bg-card border border-border shadow-lg text-foreground text-xs font-normal leading-relaxed text-center z-50 pointer-events-auto select-text animate-in fade-in zoom-in-95 duration-150"
+          className={`absolute bottom-full mb-2.5 w-60 sm:w-64 max-w-[280px] p-3 rounded-2xl bg-card border border-border shadow-lg text-foreground text-xs font-normal leading-relaxed text-center z-50 pointer-events-auto select-text animate-in fade-in zoom-in-95 duration-150 ${bubbleAlignmentClass}`}
         >
           {content}
           {/* Speech bubble downward beak pointing directly to the '?' icon */}
           <div
             aria-hidden="true"
-            className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-card border-b border-r border-border rotate-45"
+            className={`absolute -bottom-1.5 w-3 h-3 bg-card border-b border-r border-border rotate-45 ${beakAlignmentClass}`}
           />
         </div>
       )}

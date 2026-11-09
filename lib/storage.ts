@@ -96,15 +96,11 @@ export function getSavedSyllabi(includeDrafts: boolean = false): SyllabusData[] 
       return [];
     }
     const parsed: SyllabusData[] = JSON.parse(raw);
-    // Filter out legacy mock entries if previously stored
-    const cleaned = parsed.filter(
-      (s) => s.id !== "syllabus-ml-101" && s.id !== "syllabus-cloud-arch",
-    );
 
     // Deduplicate any exact duplicate syllabus entries (e.g. from rapid multi-paste triggers)
     const seen = new Set<string>();
     const deduplicated: SyllabusData[] = [];
-    for (const s of cleaned) {
+    for (const s of parsed) {
       const firstTopic = s.items?.[0]?.title || "";
       const fingerprint = `${s.items?.length || 0}::${firstTopic}`;
       if (!seen.has(fingerprint)) {
