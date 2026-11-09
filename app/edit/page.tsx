@@ -7,7 +7,7 @@ import { NoteEditor } from "@/components/editor/NoteEditor";
 import { StatusChip } from "@/components/editor/StatusChip";
 import { SubsectionsDrawer } from "@/components/editor/SubsectionsDrawer";
 import { ApiKeyModal } from "@/components/modals/ApiKeyModal";
-import { ListTree, ChevronUp } from "lucide-react";
+import { ListTree, ChevronUp, RotateCcw } from "lucide-react";
 import { initialSyllabusData } from "@/lib/mockData";
 import {
   getSavedSyllabi,
@@ -48,6 +48,13 @@ export default function EditPage() {
   const [mobileTab, setMobileTab] = useState<"tree" | "editor">("tree");
   const [activePanel, setActivePanel] = useState<"tree" | "editor">("tree");
   const [isSubsectionsOpen, setIsSubsectionsOpen] = useState<boolean>(false);
+
+  // Split pane resizing state
+  const [treeWidth, setTreeWidth] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const treePaneRef = useRef<HTMLDivElement | null>(null);
+  const treeWidthRef = useRef<number | null>(null);
 
   // Structural tree snapshot (preserves latest notes across tree undo/redo)
   interface TreeSnapshotNode {
@@ -313,6 +320,99 @@ export default function EditPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [syllabus]);
 
+  // Load saved tree pane width from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("theseus_tree_width");
+      if (saved) {
+        const parsed = Number(saved);
+        if (!isNaN(parsed) && parsed >= 260 && parsed <= 900) {
+          setTreeWidth(parsed);
+          treeWidthRef.current = parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  const handleResetWidth = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setTreeWidth(null);
+    treeWidthRef.current = null;
+    try {
+      localStorage.removeItem("theseus_tree_width");
+    } catch {
+      // ignore
+    }
+  };
+
+  // Dragging event listeners for split pane resizer
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!treePaneRef.current || !containerRef.current) return;
+      const treeLeft = treePaneRef.current.getBoundingClientRect().left;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const rawWidth = e.clientX - treeLeft;
+      const minWidth = 260;
+      const maxWidth = Math.max(minWidth, Math.min(800, containerRect.width - 380));
+      const clamped = Math.round(Math.min(Math.max(rawWidth, minWidth), maxWidth));
+      setTreeWidth(clamped);
+      treeWidthRef.current = clamped;
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+      if (treeWidthRef.current !== null) {
+        try {
+          localStorage.setItem("theseus_tree_width", String(treeWidthRef.current));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isResizing]);
+
+  // Clamp tree width if window is resized smaller
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (!containerRef.current) return;
+      const containerWidth = containerRef.current.getBoundingClientRect().width;
+      const maxAllowed = Math.max(260, Math.min(800, containerWidth - 380));
+      setTreeWidth((prev) => {
+        if (prev !== null && prev > maxAllowed) {
+          try {
+            localStorage.setItem("theseus_tree_width", String(maxAllowed));
+          } catch {}
+          return maxAllowed;
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener("resize", handleWindowResize);
+    return () => window.removeEventListener("resize", handleWindowResize);
+  }, []);
+
   const selectedTopic = findItemById(syllabus.items, selectedTopicId);
   const parentTopic = selectedTopicId
     ? findParentItem(syllabus.items, selectedTopicId)
@@ -500,13 +600,22 @@ export default function EditPage() {
       />
 
       {/* Content Area with Split Panes taking full screen */}
-      <div className="flex-1 flex gap-3 md:gap-5 px-3 sm:px-4 md:px-6 py-2 md:py-3 overflow-hidden min-h-0">
+      <div
+        ref={containerRef}
+        className="flex-1 flex px-3 sm:px-4 md:px-6 py-2 md:py-3 overflow-hidden min-h-0 relative"
+      >
         {/* Left Pane: Syllabus Tree Card */}
         <div
+          ref={treePaneRef}
           data-tree-pane="true"
           onClickCapture={() => setActivePanel("tree")}
           onFocusCapture={() => setActivePanel("tree")}
-          className={`w-full md:w-80 lg:w-96 xl:w-[380px] shrink-0 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-2xs flex flex-col overflow-hidden ${
+          style={treeWidth !== null ? { width: `${treeWidth}px` } : undefined}
+          className={`w-full ${
+            treeWidth !== null ? "" : "md:w-80 lg:w-96 xl:w-[380px]"
+          } shrink-0 bg-card rounded-2xl md:rounded-[26px] border ${
+            isResizing ? "transition-none" : "transition-all duration-200"
+          } shadow-2xs flex flex-col overflow-hidden ${
             activePanel === "tree"
               ? "border-foreground/30 shadow-xs"
               : "border-border"
@@ -537,12 +646,91 @@ export default function EditPage() {
           />
         </div>
 
+        {/* Resizable Divider Handle (Desktop) */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize syllabus tree and editor panes"
+          tabIndex={0}
+          onMouseDown={handleResizeStart}
+          onDoubleClick={handleResetWidth}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              setTreeWidth((prev) => {
+                const current = prev ?? 380;
+                const next = Math.max(260, current - 20);
+                try {
+                  localStorage.setItem("theseus_tree_width", String(next));
+                } catch {}
+                return next;
+              });
+            } else if (e.key === "ArrowRight") {
+              e.preventDefault();
+              setTreeWidth((prev) => {
+                const current = prev ?? 380;
+                const maxWidth = containerRef.current
+                  ? Math.max(
+                      260,
+                      Math.min(
+                        800,
+                        containerRef.current.getBoundingClientRect().width - 380,
+                      ),
+                    )
+                  : 800;
+                const next = Math.min(maxWidth, current + 20);
+                try {
+                  localStorage.setItem("theseus_tree_width", String(next));
+                } catch {}
+                return next;
+              });
+            } else if (
+              e.key === "Enter" ||
+              e.key === " " ||
+              e.key === "Escape"
+            ) {
+              e.preventDefault();
+              handleResetWidth();
+            }
+          }}
+          className={`hidden md:flex w-3 md:w-5 shrink-0 relative items-center justify-center cursor-col-resize select-none group z-10 ${
+            isResizing ? "pointer-events-auto" : ""
+          }`}
+        >
+          {/* Subtle Vertical Divider Line */}
+          <div
+            className={`absolute top-14 bottom-8 left-1/2 -translate-x-1/2 w-[1.5px] rounded-full transition-opacity duration-150 ${
+              isResizing
+                ? "bg-foreground/25 opacity-100"
+                : "bg-border opacity-0 group-hover:opacity-100"
+            }`}
+          />
+
+          {/* Redo / Reset Button (positioned just below the top rounded corner) */}
+          <button
+            type="button"
+            onClick={handleResetWidth}
+            onMouseDown={(e) => e.stopPropagation()}
+            title="Reset pane size"
+            aria-label="Reset pane size"
+            className={`absolute top-8 left-1/2 -translate-x-1/2 p-0.5 text-muted-foreground hover:text-foreground flex items-center justify-center transition-all duration-150 cursor-pointer z-20 ${
+              isResizing
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100"
+            }`}
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         {/* Right Pane: Main Note Editor Card */}
         <div
           data-editor-pane="true"
           onClickCapture={() => setActivePanel("editor")}
           onFocusCapture={() => setActivePanel("editor")}
-          className={`flex-1 bg-card rounded-2xl md:rounded-[26px] border transition-all duration-200 shadow-2xs flex flex-col overflow-hidden ${
+          className={`flex-1 bg-card rounded-2xl md:rounded-[26px] border ${
+            isResizing ? "transition-none" : "transition-all duration-200"
+          } shadow-2xs flex flex-col overflow-hidden ${
             activePanel === "editor"
               ? "border-foreground/30 shadow-xs"
               : "border-border"
@@ -572,6 +760,11 @@ export default function EditPage() {
           />
         </div>
       </div>
+
+      {/* Full-screen invisible drag capture overlay while resizing */}
+      {isResizing && (
+        <div className="fixed inset-0 z-50 cursor-col-resize select-none bg-transparent" />
+      )}
 
       {/* Website Footer: Status Chip, Subsections Interface, and Controls */}
       <footer className="border-t border-border-subtle bg-background flex flex-col shrink-0 z-20 font-manrope">

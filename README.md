@@ -136,6 +136,7 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 ### Subsections Drawer (Supplementary Notes)
 
 - **Targeted Topic Threads**: Dedicated floating drawer for supplementary notes, derivations, formulas, and checklists.
+- **YouTube Video & Resource Links**: Add YouTube video links, lecture references, and external web resources directly to topics with auto-linking.
 - **TipTap Live Composer**: Full rich text editing with compact toolbar.
 - **Keyboard Submission**: Press `Mod+Enter` to save and add a sub-section immediately.
 - **In-Place Editing**: Double-click any existing sub-section card or click the pencil icon to edit in-place.
