@@ -93,6 +93,10 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 
 ### Intelligent Syllabus Ingestion
 
+<p align="center">
+  <img src="showcase/Homepage.png" alt="Theseus Homepage and Syllabus Ingestion" />
+</p>
+
 - Ingest course curricula from **PDF documents**, **Microsoft Word (`.docx`)**, **plain text (`.txt`)**, and native **`.theseus` / `.json`** files.
 - **Core Syllabus Only Filter**: Toggleable slider directive that excludes non-syllabus material (e.g., lab experiments, learning outcomes, textbook citations, and grading matrices) to focus exclusively on conceptual coursework.
 - **Non-verbatim Mode Toggle**: Switch between verbatim extraction and non-verbatim topic curation. By default (off / verbatim), AI extracts curriculum topics word-for-word with zero external knowledge or invented categories. When toggled on (non-verbatim), the AI is granted liberty to reorganize, add, and refine topics into structured learning paths.
@@ -110,6 +114,10 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 
 ### Dual-Mode Live JSON Tree Editor
 
+<p align="center">
+  <img src="showcase/JSON_Editor.png" alt="Dual-Mode Live JSON Tree Editor" />
+</p>
+
 - **Seamless Toggle**: Switch between the visual tree and raw JSON via the `{ }` (Braces) button in the tree header (`Ctrl+Enter` or `Esc` to parse and toggle back).
 - **Syntax Highlighting**: Real-time syntax-highlighted code overlay with instant validity detection (caret and text display in red when JSON syntax is incomplete or invalid).
 - **Intelligent Formatting**: 2-space `Tab` key indentation and `Enter` key auto-indentation with opening bracket awareness (`{` and `[`).
@@ -117,6 +125,10 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 - **Fault-Tolerant Parser**: Repairs minor syntax issues (trailing commas, unclosed brackets) while preserving topic IDs and attached notes.
 
 ### Topic-Level Note Workspace
+
+<p align="center">
+  <img src="showcase/Diagram.png" alt="Topic Note Workspace with Diagram Support" />
+</p>
 
 - **Rich Text Editor**: Powered by TipTap with bidirectional GitHub-flavored Markdown support.
 - **Comprehensive Formatting Toolbar**:
@@ -126,16 +138,26 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
   - Lists & Blocks: Bullet list, Numbered list, Task checklist, Blockquote, Code block, Horizontal divider.
   - Alignment: Left, Center, Right, Justify.
   - Clear formatting.
-- **Media Handling**:
+- **Media & Diagram Handling**:
   - Drag-and-drop or local file upload for images.
   - Notion-style floating embed pill when pasting image URLs.
   - Visual resize handles with alignment persistence serialized directly to Markdown.
+  - Native diagram rendering and visual note attachments.
+
+<p align="center">
+  <img src="showcase/Image.png" alt="Inline Image Insertion and Resizing in Editor" />
+</p>
+
 - **Inline Topic Renaming**: Click the centered topic heading in the editor to rename the topic in-place.
 - **Topic Status Selector**: Update completion tier (Untouched, Barely, Partially, Done) directly from the editor header.
 - **Fullscreen Mode**: Toggle distraction-free fullscreen writing via the expand button or keyboard (`Esc` to exit).
 - **Debounced Autosave**: Automatic local persistence without manual save triggers.
 
 ### Subsections Drawer (Supplementary Notes)
+
+<p align="center">
+  <img src="showcase/Subsections.png" alt="Subsections Drawer for Supplementary Notes" />
+</p>
 
 - **Targeted Topic Threads**: Dedicated floating drawer for supplementary notes, derivations, formulas, and checklists.
 - **YouTube Video & Resource Links**: Add YouTube video links, lecture references, and external web resources directly to topics with auto-linking.
@@ -168,6 +190,10 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 ---
 
 ## Progress Tracking
+
+<p align="center">
+  <img src="showcase/Progress.png" alt="Progress Breakdown Popover" />
+</p>
 
 | Status             | Color Marker | Description                                             |
 | :----------------- | :----------- | :------------------------------------------------------ |
@@ -359,6 +385,7 @@ Theseus/
 │   ├── syllabusUtils.ts         # Tree traversal, stats calculation, and .theseus export
 │   └── theme.ts                 # Theme bootstrap script and storage observer
 ├── public/                      # Static branding assets and icons
+├── showcase/                    # Visual showcase screenshots and UI previews
 └── types/
     ├── ai.ts                    # Universal LLM interfaces and provider types
     ├── mammoth.d.ts             # Type definitions for Word document parser
