@@ -41,7 +41,6 @@ import {
 export default function HomePage() {
   const router = useRouter();
   const [syllabi, setSyllabi] = useState<SyllabusData[]>([]);
-  const [syllabusName, setSyllabusName] = useState("");
   const [rawText, setRawText] = useState("");
   const [activeTab, setActiveTab] = useState<"file" | "text">("file");
   const [dragOver, setDragOver] = useState(false);
@@ -51,6 +50,7 @@ export default function HomePage() {
   const [nonVerbatim, setNonVerbatim] = useState(false);
   const [isOpeningSyllabus, setIsOpeningSyllabus] = useState(false);
   const isProcessingPasteRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Undo deletion state
   const [lastDeletedSyllabus, setLastDeletedSyllabus] = useState<{
@@ -110,7 +110,7 @@ export default function HomePage() {
   const processPastedText = (text: string): boolean => {
     if (!text || typeof text !== "string" || isProcessingPasteRef.current)
       return false;
-    const syllabusData = tryParseSyllabusJson(text, syllabusName);
+    const syllabusData = tryParseSyllabusJson(text);
     if (syllabusData) {
       isProcessingPasteRef.current = true;
       setIsOpeningSyllabus(true);
@@ -179,7 +179,7 @@ export default function HomePage() {
       window.removeEventListener("paste", handlePasteEvent, true);
       window.removeEventListener("keydown", handleGlobalKeyDown, true);
     };
-  }, [syllabusName, router]);
+  }, [router]);
 
   const handleCopyTreePrompt = async () => {
     const prompt = getSyllabusTreePrompt({
@@ -245,10 +245,7 @@ export default function HomePage() {
     // Check if the uploaded file is JSON or .theseus format and open immediately
     try {
       const text = await file.text();
-      const parsedSyllabus = tryParseSyllabusJson(
-        text,
-        syllabusName || cleanName,
-      );
+      const parsedSyllabus = tryParseSyllabusJson(text, cleanName);
       if (parsedSyllabus) {
         setIsOpeningSyllabus(true);
         saveSyllabus(parsedSyllabus);
@@ -257,19 +254,12 @@ export default function HomePage() {
         return;
       }
     } catch {}
-
-    if (!syllabusName) {
-      setSyllabusName(cleanName);
-    }
   };
 
   const handleImport = async (useAi = true) => {
     setErrorMessage(null);
 
-    const title =
-      syllabusName.trim() ||
-      uploadedFile?.name.replace(/\.[^/.]+$/, "") ||
-      "New Syllabus";
+    const title = uploadedFile?.name.replace(/\.[^/.]+$/, "") || "New Syllabus";
 
     // Direct check: if rawText is valid generated JSON, immediately open it without extra processing
     if (activeTab === "text" && rawText.trim()) {
@@ -435,145 +425,145 @@ export default function HomePage() {
             <div>
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-light text-foreground tracking-tight">
-                  PDF, Word (.docx) or .TXT supported
+                  Add New Syllabus
                 </h2>
               </div>
             </div>
 
-            {/* Title input */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Syllabus Title
-              </label>
-              <input
-                type="text"
-                value={syllabusName}
-                onChange={(e) => setSyllabusName(e.target.value)}
-                placeholder="e.g. Machine Learning, Cloud Architecture"
-                className="w-full px-4 py-2.5 bg-subtle border border-border rounded-2xl text-xs text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card transition-all font-manrope"
-              />
-            </div>
+            {/* Unified Ingestion Area: Vertical Mode Dock (Left) + Dropzone / Text Area (Right) */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-4 xl:gap-5">
+              {/* Left Dock: Pill Selector & Copy Prompt */}
+              <div className="w-8 sm:w-8.5 lg:w-12 xl:w-13 flex flex-col items-center gap-1.5 lg:gap-2.5 shrink-0 select-none">
+                <div className="w-full rounded-full bg-subtle border border-border/80 p-0.5 lg:p-1.5 flex flex-col items-center gap-1 lg:gap-2 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("text");
+                      setErrorMessage(null);
+                    }}
+                    title="Paste syllabus text or JSON"
+                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 lg:w-9.5 lg:h-9.5 xl:w-10 xl:h-10 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer select-none ${
+                      activeTab === "text"
+                        ? "bg-card text-foreground shadow-2xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground font-medium"
+                    }`}
+                  >
+                    <span className="text-[7.5px] sm:text-[8px] lg:text-[10px] xl:text-[10.5px] leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center tracking-tight">
+                      Paste
+                      <br />
+                      Text
+                    </span>
+                  </button>
 
-            {/* Tab selector and Copy Prompt */}
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="flex gap-2 p-1 bg-subtle rounded-xl text-xs flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeTab === "file") {
+                        fileInputRef.current?.click();
+                      } else {
+                        setActiveTab("file");
+                        setErrorMessage(null);
+                      }
+                    }}
+                    title="Upload syllabus file"
+                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 lg:w-9.5 lg:h-9.5 xl:w-10 xl:h-10 rounded-full flex items-center justify-center transition-all cursor-pointer select-none ${
+                      activeTab === "file"
+                        ? "bg-card text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5" />
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab("file");
-                    setErrorMessage(null);
-                  }}
-                  className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    activeTab === "file"
-                      ? "bg-card text-foreground shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  onClick={handleCopyTreePrompt}
+                  title="Copy prompt to attach syllabus and generate tree JSON in ChatGPT, Claude, Gemini, etc."
+                  className="w-full py-1 lg:py-2 min-h-[26px] lg:min-h-[40px] xl:min-h-[44px] bg-subtle hover:bg-card border border-border/80 rounded-lg sm:rounded-xl lg:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer group shadow-2xs"
                 >
-                  Upload File
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab("text");
-                    setErrorMessage(null);
-                  }}
-                  className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                    activeTab === "text"
-                      ? "bg-card text-foreground shadow-2xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Paste Text
+                  {hasCopiedTreePrompt ? (
+                    <Check className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5 text-emerald-500" />
+                  ) : (
+                    <span className="text-[7.5px] sm:text-[8px] lg:text-[9.5px] xl:text-[10px] font-semibold leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center text-muted-foreground group-hover:text-foreground tracking-tight select-none">
+                      Copy
+                      <br />
+                      Prompt
+                    </span>
+                  )}
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleCopyTreePrompt}
-                title="Copy prompt to attach syllabus and generate tree JSON in ChatGPT, Claude, Gemini, etc."
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-subtle hover:bg-card text-foreground-subtle rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
-              >
-                {hasCopiedTreePrompt ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Prompt</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Upload Drop Zone or Text Area */}
-            {activeTab === "file" ? (
-              <label
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleSelectedFile(file);
-                }}
-                className={`flex flex-col items-center justify-center p-7 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
-                  dragOver
-                    ? "border-accent bg-accent-subtle"
-                    : uploadedFile
-                      ? "border-emerald-500/40 bg-emerald-500/10"
-                      : "border-border hover:border-border-subtle bg-subtle"
-                }`}
-              >
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt,.theseus,.json"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
+              {/* Upload Drop Zone or Text Area */}
+              {activeTab === "file" ? (
+                <label
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files[0];
                     if (file) handleSelectedFile(file);
                   }}
-                  className="hidden"
-                />
-                <div className="w-12 h-12 rounded-full bg-card shadow-2xs flex items-center justify-center text-foreground-subtle mb-3 border border-border">
-                  {uploadedFile ? (
-                    <FileText className="w-5 h-5 text-emerald-500" />
-                  ) : (
-                    <Upload className="w-5 h-5 text-foreground-subtle" />
-                  )}
+                  className={`flex-1 min-w-0 flex flex-col items-center justify-center p-6 sm:p-7 lg:p-8 xl:p-10 min-h-[150px] lg:min-h-[230px] xl:min-h-[260px] border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                    dragOver
+                      ? "border-accent bg-accent-subtle"
+                      : uploadedFile
+                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        : "border-border hover:border-border-subtle bg-subtle"
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt,.theseus,.json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleSelectedFile(file);
+                    }}
+                    className="hidden"
+                  />
+                  <div className="w-12 h-12 lg:w-14 lg:h-14 xl:w-16 xl:h-16 rounded-full bg-card shadow-2xs flex items-center justify-center text-foreground-subtle mb-3 lg:mb-4 border border-border">
+                    {uploadedFile ? (
+                      <FileText className="w-5 h-5 lg:w-6 lg:h-6 xl:w-7 xl:h-7 text-emerald-500" />
+                    ) : (
+                      <Upload className="w-5 h-5 lg:w-6 lg:h-6 xl:w-7 xl:h-7 text-foreground-subtle" />
+                    )}
+                  </div>
+                  <span className="text-xs lg:text-sm font-medium text-foreground text-center truncate max-w-[260px] lg:max-w-[340px]">
+                    {uploadedFile
+                      ? uploadedFile.name
+                      : "Click or drag & drop syllabus file"}
+                  </span>
+                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1 lg:mt-1.5 text-center max-w-[300px] lg:max-w-[380px]">
+                    Supports PDF, Word (.docx), TXT, or .theseus (paste JSON
+                    anywhere to open)
+                  </span>
+                </label>
+              ) : (
+                <div className="flex-1 min-w-0">
+                  <textarea
+                    rows={6}
+                    value={rawText}
+                    onChange={(e) => {
+                      setRawText(e.target.value);
+                      setErrorMessage(null);
+                    }}
+                    onPaste={(e) => {
+                      const pastedText = e.clipboardData?.getData("text") || "";
+                      if (pastedText && processPastedText(pastedText)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    placeholder="Paste unformatted syllabus text or generated JSON here (pasting JSON will automatically open it):&#10;&#10;UNIT I: Introduction to Machine Learning&#10;Types of Learning: Supervised, Unsupervised, Reinforcement&#10;Theory of Generalization: Generalization bound, VC Dimension&#10;Decision Trees, Neural Networks, Ensemble Learning"
+                    className="w-full h-[150px] lg:h-[230px] xl:h-[260px] p-3.5 lg:p-4.5 bg-subtle border border-border rounded-2xl text-xs lg:text-sm font-mono text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card resize-none transition-all leading-relaxed"
+                  />
                 </div>
-                <span className="text-xs font-medium text-foreground text-center truncate max-w-[260px]">
-                  {uploadedFile
-                    ? uploadedFile.name
-                    : "Click or drag & drop syllabus file"}
-                </span>
-                <span className="text-[10px] text-muted-foreground mt-1">
-                  Supports PDF, Word (.docx), TXT, or .theseus (paste JSON
-                  anywhere to open)
-                </span>
-              </label>
-            ) : (
-              <div className="space-y-1">
-                <textarea
-                  rows={6}
-                  value={rawText}
-                  onChange={(e) => {
-                    setRawText(e.target.value);
-                    setErrorMessage(null);
-                  }}
-                  onPaste={(e) => {
-                    const pastedText = e.clipboardData?.getData("text") || "";
-                    if (pastedText && processPastedText(pastedText)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  placeholder="Paste unformatted syllabus text or generated JSON here (pasting JSON will automatically open it):&#10;&#10;UNIT I: Introduction to Machine Learning&#10;Types of Learning: Supervised, Unsupervised, Reinforcement&#10;Theory of Generalization: Generalization bound, VC Dimension&#10;Decision Trees, Neural Networks, Ensemble Learning"
-                  className="w-full p-3.5 bg-subtle border border-border rounded-2xl text-xs font-mono text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card resize-none transition-all leading-relaxed"
-                />
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Options Slider Toggles */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 pt-1">
