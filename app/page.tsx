@@ -420,15 +420,16 @@ export default function HomePage() {
       {/* Main Content Layout: Split Panes (Import & Recents) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-6 px-4 sm:px-6 md:px-8 py-4 sm:py-5 min-h-0 lg:overflow-hidden">
         {/* Left Column: Import New Syllabus */}
-        <div className="lg:col-span-5 xl:col-span-5 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-2xs p-5 sm:p-6 flex flex-col justify-between overflow-y-auto">
-          <div className="space-y-5">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-light text-foreground tracking-tight">
-                  Add New Syllabus
-                </h2>
+        <div className="lg:col-span-5 xl:col-span-5 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-2xs flex flex-col overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col justify-between min-h-0">
+            <div className="space-y-5">
+              <div>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-light text-foreground tracking-tight">
+                    Add New Syllabus
+                  </h2>
+                </div>
               </div>
-            </div>
 
             {/* Unified Ingestion Area: Vertical Mode Dock (Left) + Dropzone / Text Area (Right) */}
             <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-4 xl:gap-5">
@@ -533,14 +534,10 @@ export default function HomePage() {
                       <Upload className="w-5 h-5 lg:w-6 lg:h-6 xl:w-7 xl:h-7 text-foreground-subtle" />
                     )}
                   </div>
-                  <span className="text-xs lg:text-sm font-medium text-foreground text-center truncate max-w-[260px] lg:max-w-[340px]">
+                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1 lg:mt-1.5 text-center max-w-[300px] lg:max-w-[380px]">
                     {uploadedFile
                       ? uploadedFile.name
-                      : "Click or drag & drop syllabus file"}
-                  </span>
-                  <span className="text-[10px] lg:text-xs text-muted-foreground mt-1 lg:mt-1.5 text-center max-w-[300px] lg:max-w-[380px]">
-                    Supports PDF, Word (.docx), TXT, or .theseus (paste JSON
-                    anywhere to open)
+                      : "Supports PDF, Word (.docx), TXT, or .theseus (paste JSON anywhere to open)"}
                   </span>
                 </label>
               ) : (
@@ -602,7 +599,7 @@ export default function HomePage() {
           </div>
 
           {/* Submit Action */}
-          <div className="pt-4 mt-4 border-t border-border-subtle space-y-3">
+          <div className="pt-4 mt-4 border-t border-border-subtle space-y-3 shrink-0">
             {/* Loading Progress Bar */}
             {isFormatting && (
               <div className="space-y-1.5 p-3 rounded-2xl bg-subtle border border-border animate-in fade-in duration-200">
@@ -660,6 +657,7 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+      </div>
 
         {/* Right Column: Recently Worked on Files */}
         <div className="lg:col-span-7 xl:col-span-7 bg-card rounded-2xl md:rounded-[26px] border border-border shadow-2xs p-5 sm:p-6 flex flex-col min-h-[300px] lg:min-h-0 overflow-hidden">

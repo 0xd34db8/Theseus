@@ -302,7 +302,7 @@ export const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser
 export const CORE_SYLLABUS_FILTER_RULE = `**CORE SYLLABUS ONLY RULE:**
 
 * Focus exclusively on the core curriculum, units, modules, chapters, and conceptual topics.
-* STRICTLY IGNORE and EXCLUDE all non-core sections such as lab components, practical experiments, course outcomes, learning objectives, textbooks/reference book lists, grading schemes, evaluation rubrics, and exam patterns.`;
+* STRICTLY IGNORE and EXCLUDE all non-core sections such as lab components, practical experiments, course outcomes, learning objectives, textbooks/reference book lists, grading schemes, evaluation rubrics, and exam patterns, guest lectures.`;
 
 export const SYLLABUS_TREE_OUTPUT_SCHEMA = `**OUTPUT SCHEMA:**
 Output STRICTLY valid, parsed JSON matching this exact schema. Do not include markdown formatting blocks (like \`\`\`json), preambles, or postscripts. Just the raw JSON object:
