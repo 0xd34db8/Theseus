@@ -249,6 +249,9 @@ interface FormatSyllabusOptions {
   };
   preferredTitle?: string;
   coreOnly?: boolean;
+  verbatim?: boolean;
+  nonVerbatim?: boolean;
+  flexible?: boolean;
 }
 
 interface RawAiItem {
@@ -322,9 +325,75 @@ Output STRICTLY valid, parsed JSON matching this exact schema. Do not include ma
   ]
 }`;
 
-export function buildSyllabusTreePrompt(coreOnly = true): string {
+export const NON_VERBATIM_SYLLABUS_TREE_PROMPT = `You are a curriculum parser for the Theseus study application.
+Transform messy or tabular syllabus content into a clean hierarchical tree.
+
+CRITICAL FORMATTING RULES:
+1. Top-Level: Each Unit, Module, or Chapter is a top-level item (e.g. "UNIT I: Introduction to Machine Learning").
+2. Mid-Level: Logical groups, sections, or categories are child items.
+3. Leaf-Level: Break down dense comma-separated or dash-separated lists into clean, distinct subtopic items.
+4. Completeness: NEVER omit any topic from the source syllabus. Preserve all academic concepts mentioned.
+5. Output format: Output strictly valid JSON matching this schema:
+{
+  "courseTitle": "Course / Subject Title",
+  "items": [
+    {
+      "title": "UNIT I/Module 1: ...",
+      "children": [
+        {
+          "title": "Section / Topic Group",
+          "children": [
+            { "title": "Subtopic A" },
+            { "title": "Subtopic B" }
+          ]
+        }
+      ]
+    }
+  ]
+}`;
+
+// Backwards-compatible alias
+export const LEGACY_SYLLABUS_TREE_PROMPT = NON_VERBATIM_SYLLABUS_TREE_PROMPT;
+
+export function buildSyllabusTreePrompt(
+  coreOnlyOrOptions:
+    | boolean
+    | {
+        coreOnly?: boolean;
+        verbatim?: boolean;
+        nonVerbatim?: boolean;
+        flexible?: boolean;
+      } = true,
+  nonVerbatimArg = false,
+): string {
+  let isCoreOnly = true;
+  let isNonVerbatim = false;
+
+  if (typeof coreOnlyOrOptions === "object" && coreOnlyOrOptions !== null) {
+    isCoreOnly = coreOnlyOrOptions.coreOnly !== false;
+    isNonVerbatim =
+      coreOnlyOrOptions.nonVerbatim === true ||
+      coreOnlyOrOptions.verbatim === false ||
+      coreOnlyOrOptions.flexible === true;
+  } else {
+    if (typeof coreOnlyOrOptions === "boolean") {
+      isCoreOnly = coreOnlyOrOptions;
+    }
+    if (typeof nonVerbatimArg === "boolean") {
+      isNonVerbatim = nonVerbatimArg;
+    }
+  }
+
+  if (isNonVerbatim) {
+    const sections = [NON_VERBATIM_SYLLABUS_TREE_PROMPT];
+    if (isCoreOnly) {
+      sections.push(CORE_SYLLABUS_FILTER_RULE);
+    }
+    return sections.join("\n\n");
+  }
+
   const sections = [SYLLABUS_PARSER_BASE_RULES];
-  if (coreOnly) {
+  if (isCoreOnly) {
     sections.push(CORE_SYLLABUS_FILTER_RULE);
   }
   sections.push(SYLLABUS_TREE_OUTPUT_SCHEMA);
@@ -340,9 +409,19 @@ export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt(true);
 export function getSyllabusTreePrompt(options?: {
   rawText?: string;
   coreOnly?: boolean;
+  verbatim?: boolean;
+  nonVerbatim?: boolean;
+  flexible?: boolean;
 }): string {
   const isCoreOnly = options?.coreOnly !== false;
-  const basePrompt = buildSyllabusTreePrompt(isCoreOnly);
+  const isNonVerbatim =
+    options?.nonVerbatim === true ||
+    options?.verbatim === false ||
+    options?.flexible === true;
+  const basePrompt = buildSyllabusTreePrompt({
+    coreOnly: isCoreOnly,
+    nonVerbatim: isNonVerbatim,
+  });
 
   if (options?.rawText && options.rawText.trim()) {
     return `${basePrompt}\n\nSyllabus Content:\n\n${options.rawText.trim()}`;
@@ -400,7 +479,14 @@ export async function formatSyllabusWithAI(
   configOrKey?: string | AIConfig,
 ): Promise<SyllabusData> {
   const isCoreOnly = options.coreOnly !== false;
-  const systemPrompt = buildSyllabusTreePrompt(isCoreOnly);
+  const isNonVerbatim =
+    options.nonVerbatim === true ||
+    options.verbatim === false ||
+    options.flexible === true;
+  const systemPrompt = buildSyllabusTreePrompt({
+    coreOnly: isCoreOnly,
+    nonVerbatim: isNonVerbatim,
+  });
 
   const userPrompt = options.text
     ? `Syllabus Content:\n\n${options.text}`

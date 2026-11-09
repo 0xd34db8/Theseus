@@ -24,6 +24,7 @@ import {
 import { formatSyllabusWithAI, getSyllabusTreePrompt } from "@/lib/ai";
 import { processSyllabusFile } from "@/lib/fileUtils";
 import { SyllabusData } from "@/types/syllabus";
+import { SliderToggle } from "@/components/ui/SliderToggle";
 import {
   Upload,
   ArrowRight,
@@ -47,6 +48,7 @@ export default function HomePage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [hasCopiedTreePrompt, setHasCopiedTreePrompt] = useState(false);
   const [coreSyllabusOnly, setCoreSyllabusOnly] = useState(true);
+  const [nonVerbatim, setNonVerbatim] = useState(false);
   const [isOpeningSyllabus, setIsOpeningSyllabus] = useState(false);
   const isProcessingPasteRef = useRef(false);
 
@@ -183,6 +185,7 @@ export default function HomePage() {
     const prompt = getSyllabusTreePrompt({
       rawText: activeTab === "text" && rawText.trim() ? rawText : undefined,
       coreOnly: coreSyllabusOnly,
+      nonVerbatim,
     });
     try {
       await navigator.clipboard.writeText(prompt);
@@ -347,6 +350,7 @@ export default function HomePage() {
                   },
                   preferredTitle: title,
                   coreOnly: coreSyllabusOnly,
+                  nonVerbatim,
                 },
                 getAIConfig(),
               );
@@ -356,6 +360,7 @@ export default function HomePage() {
                   text: processed.text,
                   preferredTitle: title,
                   coreOnly: coreSyllabusOnly,
+                  nonVerbatim,
                 },
                 getAIConfig(),
               );
@@ -375,6 +380,7 @@ export default function HomePage() {
               text: rawText.trim(),
               preferredTitle: title,
               coreOnly: coreSyllabusOnly,
+              nonVerbatim,
             },
             getAIConfig(),
           );
@@ -569,22 +575,20 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Core Syllabus Only Checkbox */}
-            <div className="flex items-center pt-0.5">
-              <label
-                className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-muted-foreground group"
-                title="Excludes non-core sections like lab experiments, learning outcomes, and grading schemes."
-              >
-                <input
-                  type="checkbox"
-                  checked={coreSyllabusOnly}
-                  onChange={(e) => setCoreSyllabusOnly(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded-sm border-border text-foreground focus:ring-0 focus:ring-offset-0 cursor-pointer accent-accent"
-                />
-                <span className="font-normal text-foreground-subtle group-hover:text-foreground transition-colors">
-                  Core Syllabus Only
-                </span>
-              </label>
+            {/* Options Slider Toggles */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 pt-1">
+              <SliderToggle
+                checked={coreSyllabusOnly}
+                onChange={setCoreSyllabusOnly}
+                label="Core Syllabus Only"
+                tooltip="Excludes non-core sections like lab experiments, course outcomes, reference books, and grading schemes."
+              />
+              <SliderToggle
+                checked={nonVerbatim}
+                onChange={setNonVerbatim}
+                label="Non-verbatim Mode"
+                tooltip="Allows the AI the liberty to modify, add, or reorganize topics. By default (verbatim), it strictly preserves the original syllabus text without additions."
+              />
             </div>
 
             {/* Error Message Notice */}

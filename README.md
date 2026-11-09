@@ -94,12 +94,14 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 ### Intelligent Syllabus Ingestion
 
 - Ingest course curricula from **PDF documents**, **Microsoft Word (`.docx`)**, **plain text (`.txt`)**, and native **`.theseus` / `.json`** files.
-- **Core Syllabus Only Filter**: Toggleable parser directive that excludes non-syllabus material (e.g., lab experiments, learning outcomes, textbook citations, and grading matrices) to focus exclusively on conceptual coursework.
+- **Core Syllabus Only Filter**: Toggleable slider directive that excludes non-syllabus material (e.g., lab experiments, learning outcomes, textbook citations, and grading matrices) to focus exclusively on conceptual coursework.
+- **Non-verbatim Mode Toggle**: Switch between verbatim extraction and non-verbatim topic curation. By default (off / verbatim), AI extracts curriculum topics word-for-word with zero external knowledge or invented categories. When toggled on (non-verbatim), the AI is granted liberty to reorganize, add, and refine topics into structured learning paths.
 - **Instant Homepage Paste**: Paste generated JSON or `.theseus` data anywhere on the homepage (`Cmd+V` / `Ctrl+V`) to automatically parse the tree and launch the workspace.
 
 ### Hierarchical Tree Viewer & Editor
 
 - **Visual Tree Navigation**: Expand and collapse modules, units, and sections (`▼` / `▶`).
+- **Resizable Split Panes**: Drag the divider handle between the tree and editor to adjust pane width with persistence in `localStorage`; hover to reveal the subtle divider line and floating reset button (or double-click) to restore default responsive sizing.
 - **Note Indicator**: Displays a dedicated note icon beside topics containing study notes.
 - **Inline Renaming**: Double-click any topic in the tree to edit its title directly (`Enter` to save, `Esc` to cancel).
 - **Context Menu**: Click the options button (`...`) on any topic to update progress status (Done, Partially, Barely, Untouched), toggle note creation/removal, create a subtopic, rename, or delete the topic.
