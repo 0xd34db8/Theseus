@@ -115,8 +115,18 @@ export function EditorToolbar({
     if (!editor) return "16 (normal)";
 
     // 1. If an image is selected
-    if (editor.isActive("image")) {
-      const imageAttrs = editor.getAttributes("image");
+    const isImage = editor.isActive("image");
+    let imageAttrs: any = isImage ? editor.getAttributes("image") : null;
+    if (!imageAttrs) {
+      const { from, to } = editor.state.selection;
+      editor.state.doc.nodesBetween(from, to, (node) => {
+        if (node.type.name === "image") {
+          imageAttrs = node.attrs;
+        }
+      });
+    }
+
+    if (imageAttrs) {
       if (!imageAttrs.width) return "16 (normal)";
       const w =
         typeof imageAttrs.width === "number"
@@ -147,6 +157,18 @@ export function EditorToolbar({
         return parsed === 16 ? "16 (normal)" : String(parsed);
       }
     }
+
+    // Also check current selection marks directly
+    try {
+      const marks = editor.state.selection.$from.marks();
+      const fontSizeMark = marks.find((m) => m.type.name === "fontSize");
+      if (fontSizeMark?.attrs?.size) {
+        const parsed = parseInt(String(fontSizeMark.attrs.size), 10);
+        if (!isNaN(parsed)) {
+          return parsed === 16 ? "16 (normal)" : String(parsed);
+        }
+      }
+    } catch {}
 
     // 3. Heading levels
     if (editor.isActive("heading", { level: 1 })) return "32";
@@ -351,7 +373,7 @@ export function EditorToolbar({
       {/* Font & Item Size Combobox */}
       <div
         ref={comboboxRef}
-        className={`relative flex items-center bg-card border border-border rounded text-foreground outline-hidden ${
+        className={`relative inline-flex items-center bg-card border border-border rounded text-foreground outline-hidden transition-all duration-150 ${
           compact ? "text-[11px] h-6" : "text-xs h-7 rounded-md"
         }`}
       >
@@ -384,7 +406,11 @@ export function EditorToolbar({
             }
           }}
           placeholder="16"
-          className="w-20 sm:w-22 px-1.5 py-0.5 text-center bg-transparent outline-none font-medium text-foreground select-all"
+          style={{
+            fieldSizing: "content",
+            width: `${Math.max(2, (inputValue || "").length)}ch`,
+          }}
+          className="min-w-[2rem] max-w-[7.5rem] px-1.5 py-0.5 text-center bg-transparent outline-none font-medium text-foreground select-all box-content transition-all duration-150"
           title="Font & item size (type any number or select)"
           aria-label="Font and item size"
         />
@@ -396,7 +422,7 @@ export function EditorToolbar({
             e.stopPropagation();
           }}
           onClick={toggleOpen}
-          className="h-full px-1.5 hover:bg-subtle text-muted-foreground hover:text-foreground transition-colors cursor-pointer border-l border-border flex items-center justify-center rounded-r"
+          className="h-full px-1 hover:bg-subtle text-muted-foreground hover:text-foreground transition-colors cursor-pointer border-l border-border flex items-center justify-center rounded-r shrink-0"
           title="Select size"
           aria-label="Select size preset"
         >

@@ -60,6 +60,7 @@ import {
   SearchHighlightPluginKey,
 } from "./extensions";
 import { EditorToolbar } from "./EditorToolbar";
+import { FloatingTextMenu } from "./FloatingTextMenu";
 
 const STATUS_OPTIONS: {
   value: TopicStatus;
@@ -1376,6 +1377,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           }
         >
           <EditorContent editor={editor} />
+          <FloatingTextMenu editor={editor} isReadingMode={isReadingMode} />
         </div>
       </div>
 
