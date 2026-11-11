@@ -24,6 +24,7 @@ import {
   Table as TableIcon,
   Sigma,
   RemoveFormatting,
+  ChevronUp,
 } from "lucide-react";
 
 export interface EditorToolbarProps {
@@ -32,6 +33,7 @@ export interface EditorToolbarProps {
   className?: string;
   showHistory?: boolean;
   showClearFormatting?: boolean;
+  onSlideUp?: () => void;
 }
 
 export function EditorToolbar({
@@ -40,6 +42,7 @@ export function EditorToolbar({
   className = "",
   showHistory = true,
   showClearFormatting = true,
+  onSlideUp,
 }: EditorToolbarProps) {
   if (!editor) return null;
 
@@ -59,8 +62,10 @@ export function EditorToolbar({
 
   return (
     <div
-      className={`flex items-center gap-1 bg-subtle text-foreground-subtle overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap ${
-        compact ? "px-2 py-1.5 text-[11px]" : "px-3 sm:px-6 md:px-8 py-2 text-xs"
+      className={`w-full flex items-center gap-1 bg-subtle text-foreground-subtle overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap ${
+        compact
+          ? "px-2 py-1.5 text-[11px]"
+          : "px-3 sm:px-6 md:px-8 py-2 text-xs"
       } ${className}`}
     >
       {/* Undo / Redo */}
@@ -338,6 +343,23 @@ export function EditorToolbar({
             <RemoveFormatting className={iconClass} />
           </button>
         </>
+      )}
+
+      {/* Slide Up Ribbon Button */}
+      {onSlideUp && (
+        <div className="ml-auto flex items-center pl-1 shrink-0">
+          <div className={dividerClass} />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onSlideUp}
+            className={btnClass(false)}
+            title="Hide ribbon"
+            aria-label="Hide ribbon"
+          >
+            <ChevronUp className={iconClass} />
+          </button>
+        </div>
       )}
     </div>
   );

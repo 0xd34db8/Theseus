@@ -72,7 +72,9 @@ interface NoteEditorProps {
   isActive?: boolean;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  onSearchMatchChange?: (info: { current: number; total: number } | null) => void;
+  onSearchMatchChange?: (
+    info: { current: number; total: number } | null,
+  ) => void;
   onRegisterSearchActions?: (actions: {
     findNext: () => void;
     findPrev: () => void;
@@ -107,8 +109,13 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [pendingEmbedUrl, setPendingEmbedUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isReadingMode, setIsReadingMode] = useState<boolean>(false);
-  const [isFullscreenSearchOpen, setIsFullscreenSearchOpen] = useState<boolean>(false);
-  const [localSearchMatchInfo, setLocalSearchMatchInfo] = useState<{ current: number; total: number } | null>(null);
+  const [isRibbonCollapsed, setIsRibbonCollapsed] = useState<boolean>(false);
+  const [isFullscreenSearchOpen, setIsFullscreenSearchOpen] =
+    useState<boolean>(false);
+  const [localSearchMatchInfo, setLocalSearchMatchInfo] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const fullscreenSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Fullscreen toggle & Escape key listener
@@ -517,7 +524,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           isProgrammaticUpdateRef.current = true;
           const targetTopicId = selectedTopic.id;
           queueMicrotask(() => {
-            if (!editor.isDestroyed && selectedTopicRef.current?.id === targetTopicId) {
+            if (
+              !editor.isDestroyed &&
+              selectedTopicRef.current?.id === targetTopicId
+            ) {
               editor.commands.setContent(noteContent, { emitUpdate: false });
             }
             isProgrammaticUpdateRef.current = false;
@@ -1070,12 +1080,35 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         </div>
       </div>
 
-      {/* Formatting Toolbar */}
+      {/* Formatting Toolbar (Ribbon) with Slide-Up Transition */}
       {!isReadingMode && (
-        <EditorToolbar
-          editor={editor}
-          className="border-b border-border-subtle"
-        />
+        <div
+          className={`transition-all duration-200 ease-in-out overflow-hidden ${
+            isRibbonCollapsed
+              ? "max-h-0 opacity-0 pointer-events-none"
+              : "max-h-48 opacity-100 border-b border-border-subtle"
+          }`}
+        >
+          <EditorToolbar
+            editor={editor}
+            onSlideUp={() => setIsRibbonCollapsed(true)}
+          />
+        </div>
+      )}
+
+      {/* Re-expand ribbon handle when slid up */}
+      {!isReadingMode && isRibbonCollapsed && (
+        <div className="flex items-center justify-end px-3 sm:px-6 md:px-8 py-1 bg-subtle/50 border-b border-border-subtle text-xs animate-in fade-in slide-in-from-top-1 duration-150">
+          <button
+            type="button"
+            onClick={() => setIsRibbonCollapsed(false)}
+            className="flex items-center gap-1 px-2.5 py-0.5 text-xs text-foreground hover:bg-subtle rounded-full transition-colors cursor-pointer select-none"
+            title="Show ribbon"
+            aria-label="Show ribbon"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
 
       {/* Notion-style Floating Contextual Action for Pasted Image URLs */}

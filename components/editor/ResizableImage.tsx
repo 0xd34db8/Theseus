@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { NodeViewWrapper, NodeViewProps } from "@tiptap/react";
-import { AlignLeft, AlignCenter, AlignRight, Trash2 } from "lucide-react";
+import { AlignLeft, AlignCenter, AlignRight, Trash2, Crop } from "lucide-react";
+import { ImageCropModal } from "./ImageCropModal";
 
 export const ResizableImage: React.FC<NodeViewProps> = ({
   node,
@@ -16,6 +17,7 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
   const imgRef = useRef<HTMLImageElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isCropping, setIsCropping] = useState(false);
   const [liveWidth, setLiveWidth] = useState<number | null>(
     typeof node.attrs.width === "number"
       ? node.attrs.width
@@ -227,6 +229,16 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
               </button>
             )}
 
+            {/* Crop Action */}
+            <button
+              type="button"
+              title="Crop image (or double-click)"
+              onClick={() => setIsCropping(true)}
+              className="p-1 rounded-md text-foreground-subtle hover:text-foreground hover:bg-subtle transition-colors cursor-pointer"
+            >
+              <Crop className="w-3.5 h-3.5" />
+            </button>
+
             <div className="w-px h-3.5 bg-border mx-0.5" />
 
             {/* Delete Image */}
@@ -246,7 +258,17 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
           ref={imgRef}
           src={node.attrs.src}
           alt={node.attrs.alt || ""}
-          title={node.attrs.title || ""}
+          title={
+            editor?.isEditable
+              ? "Double-click to crop"
+              : node.attrs.title || ""
+          }
+          onDoubleClick={(e) => {
+            if (!editor || !editor.isEditable) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setIsCropping(true);
+          }}
           className={`block w-full h-auto object-contain rounded-xl border border-border shadow-2xs transition-shadow cursor-pointer ${
             selected
               ? "ring-2 ring-accent ring-offset-2 ring-offset-card shadow-xs"
@@ -291,6 +313,20 @@ export const ResizableImage: React.FC<NodeViewProps> = ({
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-black/80 text-white text-[10px] rounded-md pointer-events-none select-none z-30 font-mono shadow-xs">
             {liveWidth}px
           </div>
+        )}
+
+        {/* Image Crop Modal */}
+        {isCropping && (
+          <ImageCropModal
+            isOpen={isCropping}
+            src={node.attrs.src}
+            alt={node.attrs.alt}
+            onApply={(croppedDataUrl) => {
+              updateAttributes({ src: croppedDataUrl });
+              setIsCropping(false);
+            }}
+            onCancel={() => setIsCropping(false)}
+          />
         )}
       </div>
     </NodeViewWrapper>
