@@ -2,13 +2,7 @@
 
 import React from "react";
 import { SyllabusItem, TopicStatus } from "@/types/syllabus";
-import {
-  Check,
-  FileText,
-  Plus,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { Check, FileText, Plus, Pencil, Trash2 } from "lucide-react";
 
 export interface TreeContextMenuProps {
   item: SyllabusItem;
@@ -51,10 +45,6 @@ export function TreeContextMenu({
         e.stopPropagation();
       }}
     >
-      <div className="px-3 py-1 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
-        Progress Status
-      </div>
-
       <button
         type="button"
         onClick={() => {

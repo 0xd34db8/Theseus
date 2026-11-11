@@ -417,8 +417,8 @@ export default function HomePage() {
             {/* Unified Ingestion Area: Vertical Mode Dock (Left) + Dropzone / Text Area (Right) */}
             <div className="flex items-center gap-2.5 sm:gap-3.5 lg:gap-4 xl:gap-5">
               {/* Left Dock: Pill Selector & Copy Prompt */}
-              <div className="flex flex-col items-start gap-1.5 lg:gap-2.5 shrink-0 select-none">
-                <div className="w-8 sm:w-8.5 lg:w-12 xl:w-13 rounded-full bg-subtle border border-border/80 p-0.5 lg:p-1.5 flex flex-col items-center gap-1 lg:gap-2 shadow-2xs">
+              <div className="flex flex-col items-start gap-1.5 sm:gap-2 lg:gap-2.5 shrink-0 select-none">
+                <div className="w-12 xl:w-13 rounded-full bg-subtle border border-border/80 p-1 sm:p-1.5 flex flex-col items-center gap-1.5 lg:gap-2 shadow-2xs">
                   <button
                     type="button"
                     onClick={() => {
@@ -426,13 +426,13 @@ export default function HomePage() {
                       setErrorMessage(null);
                     }}
                     title="Paste syllabus text or JSON"
-                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 lg:w-9.5 lg:h-9.5 xl:w-10 xl:h-10 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer select-none ${
+                    className={`w-9.5 h-9.5 xl:w-10 xl:h-10 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer select-none ${
                       activeTab === "text"
                         ? "bg-card text-foreground shadow-2xs font-semibold"
                         : "text-muted-foreground hover:text-foreground font-medium"
                     }`}
                   >
-                    <span className="text-[7.5px] sm:text-[8px] lg:text-[10px] xl:text-[10.5px] leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center tracking-tight">
+                    <span className="text-[9.5px] xl:text-[10.5px] leading-[11.5px] xl:leading-[13px] text-center tracking-tight">
                       Paste
                       <br />
                       Text
@@ -450,13 +450,13 @@ export default function HomePage() {
                       }
                     }}
                     title="Upload syllabus file"
-                    className={`w-7 h-7 sm:w-7.5 sm:h-7.5 lg:w-9.5 lg:h-9.5 xl:w-10 xl:h-10 rounded-full flex items-center justify-center transition-all cursor-pointer select-none ${
+                    className={`w-9.5 h-9.5 xl:w-10 xl:h-10 rounded-full flex items-center justify-center transition-all cursor-pointer select-none ${
                       activeTab === "file"
                         ? "bg-card text-foreground shadow-2xs"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <Upload className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5" />
+                    <Upload className="w-4.5 h-4.5 xl:w-5 xl:h-5" />
                   </button>
                 </div>
 
@@ -465,12 +465,12 @@ export default function HomePage() {
                     type="button"
                     onClick={handleCopyTreePrompt}
                     title="Copy prompt to attach syllabus and generate tree JSON in ChatGPT, Claude, Gemini, etc."
-                    className="w-8 sm:w-8.5 lg:w-12 xl:w-13 py-1 lg:py-2 min-h-[26px] lg:min-h-[40px] xl:min-h-[44px] bg-subtle hover:bg-card border border-border/80 rounded-lg sm:rounded-xl lg:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer group shadow-2xs"
+                    className="w-12 xl:w-13 py-1.5 lg:py-2 min-h-[38px] xl:min-h-[44px] bg-subtle hover:bg-card border border-border/80 rounded-xl lg:rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer group shadow-2xs"
                   >
                     {hasCopiedTreePrompt ? (
-                      <Check className="w-3.5 h-3.5 lg:w-4.5 lg:h-4.5 xl:w-5 xl:h-5 text-emerald-500" />
+                      <Check className="w-4.5 h-4.5 xl:w-5 xl:h-5 text-emerald-500" />
                     ) : (
-                      <span className="text-[7.5px] sm:text-[8px] lg:text-[9.5px] xl:text-[10px] font-semibold leading-[9px] lg:leading-[12px] xl:leading-[13px] text-center text-muted-foreground group-hover:text-foreground tracking-tight select-none">
+                      <span className="text-[9px] xl:text-[10px] font-semibold leading-[11.5px] xl:leading-[13px] text-center text-muted-foreground group-hover:text-foreground tracking-tight select-none">
                         Copy
                         <br />
                         Prompt
