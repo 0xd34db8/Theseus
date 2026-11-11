@@ -20,12 +20,14 @@ import {
   parseRawTextToSyllabus,
   createStarterSyllabus,
   tryParseSyllabusJson,
+  detectAttemptedJsonOrTheseus,
 } from "@/lib/parser";
 import { formatSyllabusWithAI, getSyllabusTreePrompt } from "@/lib/ai";
 import { processSyllabusFile } from "@/lib/fileUtils";
 import { SyllabusData } from "@/types/syllabus";
 import { SliderToggle } from "@/components/ui/SliderToggle";
 import { TooltipBubble } from "@/components/ui/TooltipBubble";
+import { Toast } from "@/components/ui/Toast";
 import {
   Upload,
   ArrowRight,
@@ -50,8 +52,13 @@ export default function HomePage() {
   const [coreSyllabusOnly, setCoreSyllabusOnly] = useState(true);
   const [nonVerbatim, setNonVerbatim] = useState(false);
   const [isOpeningSyllabus, setIsOpeningSyllabus] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const isProcessingPasteRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = (message: string) => {
+    setToastMessage(message);
+  };
 
   // Undo deletion state
   const [lastDeletedSyllabus, setLastDeletedSyllabus] = useState<{
@@ -93,6 +100,7 @@ export default function HomePage() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   useEffect(() => {
+    isProcessingPasteRef.current = false;
     cleanupUnusedDrafts();
     setSyllabi(getSavedSyllabi());
     setApiKey(getApiKey());
@@ -106,11 +114,19 @@ export default function HomePage() {
     if (syllabusData) {
       isProcessingPasteRef.current = true;
       setIsOpeningSyllabus(true);
-      saveSyllabus(syllabusData);
-      setActiveSyllabusId(syllabusData.id);
+      const activeId = saveSyllabus(syllabusData);
+      setActiveSyllabusId(activeId);
       router.push("/edit");
       return true;
     }
+
+    const attempted = detectAttemptedJsonOrTheseus(text);
+    if (attempted === "theseus") {
+      showToast("Invalid .theseus File");
+    } else if (attempted === "json") {
+      showToast("Invalid JSON");
+    }
+
     return false;
   };
 
@@ -121,22 +137,31 @@ export default function HomePage() {
       window.focus();
     }
 
-    let lastPasteTimestamp = 0;
-
-    const handlePasteEvent = (e: ClipboardEvent) => {
+    const handlePasteEvent = async (e: ClipboardEvent) => {
       if (isProcessingPasteRef.current) return;
-      const now = Date.now();
-      if (now - lastPasteTimestamp < 1000) return;
-      lastPasteTimestamp = now;
 
-      const pastedText = e.clipboardData?.getData("text") || "";
+      let pastedText =
+        e.clipboardData?.getData("text/plain") ||
+        e.clipboardData?.getData("text") ||
+        "";
+
+      if (
+        !pastedText &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.readText === "function"
+      ) {
+        try {
+          pastedText = await navigator.clipboard.readText();
+        } catch {}
+      }
+
       if (pastedText && processPastedText(pastedText)) {
         e.preventDefault();
         e.stopPropagation();
       }
     };
 
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    const handleGlobalKeyDown = async (e: KeyboardEvent) => {
       if (isProcessingPasteRef.current) return;
       const isPasteShortcut =
         (e.metaKey || e.ctrlKey) &&
@@ -144,32 +169,38 @@ export default function HomePage() {
 
       if (!isPasteShortcut) return;
 
-      setTimeout(async () => {
-        if (isProcessingPasteRef.current) return;
-        const now = Date.now();
-        if (now - lastPasteTimestamp < 1000) return;
+      const target = e.target as HTMLElement | null;
+      const isInput =
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
 
-        if (
-          navigator.clipboard &&
-          typeof navigator.clipboard.readText === "function"
-        ) {
-          try {
-            const clipboardText = await navigator.clipboard.readText();
-            if (clipboardText && !isProcessingPasteRef.current) {
-              lastPasteTimestamp = Date.now();
-              processPastedText(clipboardText);
+      if (
+        !isInput &&
+        navigator.clipboard &&
+        typeof navigator.clipboard.readText === "function"
+      ) {
+        try {
+          const clipboardText = await navigator.clipboard.readText();
+          if (clipboardText && !isProcessingPasteRef.current) {
+            if (processPastedText(clipboardText)) {
+              e.preventDefault();
+              e.stopPropagation();
             }
-          } catch {}
-        }
-      }, 50);
+          }
+        } catch {}
+      }
     };
 
     window.addEventListener("paste", handlePasteEvent, true);
+    document.addEventListener("paste", handlePasteEvent, true);
     window.addEventListener("keydown", handleGlobalKeyDown, true);
+    document.addEventListener("keydown", handleGlobalKeyDown, true);
 
     return () => {
       window.removeEventListener("paste", handlePasteEvent, true);
+      document.removeEventListener("paste", handlePasteEvent, true);
       window.removeEventListener("keydown", handleGlobalKeyDown, true);
+      document.removeEventListener("keydown", handleGlobalKeyDown, true);
     };
   }, [router]);
 
@@ -220,23 +251,36 @@ export default function HomePage() {
   };
 
   const handleSelectedFile = async (file: File) => {
-    setUploadedFile(file);
     setErrorMessage(null);
 
     const cleanName = file.name.replace(/\.[^/.]+$/, "");
+    const isTheseus = file.name.toLowerCase().endsWith(".theseus");
+    const isJson = file.name.toLowerCase().endsWith(".json");
 
     // Check if the uploaded file is JSON or .theseus format and open immediately
-    try {
-      const text = await file.text();
-      const parsedSyllabus = tryParseSyllabusJson(text, cleanName);
-      if (parsedSyllabus) {
-        setIsOpeningSyllabus(true);
-        saveSyllabus(parsedSyllabus);
-        setActiveSyllabusId(parsedSyllabus.id);
-        router.push("/edit");
+    if (isTheseus || isJson) {
+      try {
+        const text = await file.text();
+        const parsedSyllabus = tryParseSyllabusJson(text, cleanName);
+        if (parsedSyllabus) {
+          setIsOpeningSyllabus(true);
+          const activeId = saveSyllabus(parsedSyllabus);
+          setActiveSyllabusId(activeId);
+          router.push("/edit");
+          return;
+        } else {
+          showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
+          setUploadedFile(null);
+          return;
+        }
+      } catch {
+        showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
+        setUploadedFile(null);
         return;
       }
-    } catch {}
+    }
+
+    setUploadedFile(file);
   };
 
   const handleImport = async (useAi = true) => {
@@ -249,9 +293,18 @@ export default function HomePage() {
       const directJson = tryParseSyllabusJson(rawText.trim(), title);
       if (directJson) {
         setIsOpeningSyllabus(true);
-        saveSyllabus(directJson);
-        setActiveSyllabusId(directJson.id);
+        const activeId = saveSyllabus(directJson);
+        setActiveSyllabusId(activeId);
         router.push("/edit");
+        return;
+      }
+
+      const attempted = detectAttemptedJsonOrTheseus(rawText);
+      if (attempted === "theseus") {
+        showToast("Invalid .theseus File");
+        return;
+      } else if (attempted === "json") {
+        showToast("Invalid JSON");
         return;
       }
     }
@@ -273,6 +326,9 @@ export default function HomePage() {
       if (!useAi) {
         // Offline mode: does not require a file/text to be provided first
         if (activeTab === "file" && uploadedFile) {
+          const isTheseus = uploadedFile.name.toLowerCase().endsWith(".theseus");
+          const isJson = uploadedFile.name.toLowerCase().endsWith(".json");
+
           setStatusMessage("Reading file contents...");
           const processed = await processSyllabusFile(uploadedFile);
           if (processed.isJsonOrTheseus && processed.jsonData) {
@@ -281,6 +337,10 @@ export default function HomePage() {
               fileName: title,
               lastModified: "Just now",
             };
+          } else if (isTheseus || isJson) {
+            showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
+            setIsFormatting(false);
+            return;
           } else if (processed.text) {
             resultSyllabus = parseRawTextToSyllabus(processed.text, title);
           } else {
@@ -303,6 +363,9 @@ export default function HomePage() {
             );
           }
 
+          const isTheseus = uploadedFile.name.toLowerCase().endsWith(".theseus");
+          const isJson = uploadedFile.name.toLowerCase().endsWith(".json");
+
           setStatusMessage("Reading file contents...");
           const processed = await processSyllabusFile(uploadedFile);
 
@@ -312,6 +375,10 @@ export default function HomePage() {
               fileName: title,
               lastModified: "Just now",
             };
+          } else if (isTheseus || isJson) {
+            showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
+            setIsFormatting(false);
+            return;
           } else {
             setStatusMessage("AI is structuring syllabus tree...");
             if (processed.pdfBase64) {
@@ -538,9 +605,13 @@ export default function HomePage() {
                       setErrorMessage(null);
                     }}
                     onPaste={(e) => {
-                      const pastedText = e.clipboardData?.getData("text") || "";
+                      const pastedText =
+                        e.clipboardData?.getData("text/plain") ||
+                        e.clipboardData?.getData("text") ||
+                        "";
                       if (pastedText && processPastedText(pastedText)) {
                         e.preventDefault();
+                        e.stopPropagation();
                       }
                     }}
                     placeholder="Paste unformatted syllabus text or generated JSON here (pasting JSON will automatically open it):&#10;&#10;UNIT I: Introduction to Machine Learning&#10;Types of Learning: Supervised, Unsupervised, Reinforcement&#10;Theory of Generalization: Generalization bound, VC Dimension&#10;Decision Trees, Neural Networks, Ensemble Learning"
@@ -710,6 +781,14 @@ export default function HomePage() {
             <Loader2 className="w-12 h-12 animate-spin text-foreground" />
           </div>
         </div>
+      )}
+
+      {/* Toast notification for invalid JSON or .theseus file import/paste */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage(null)}
+        />
       )}
     </main>
   );

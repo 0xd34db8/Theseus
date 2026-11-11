@@ -123,28 +123,55 @@ function sanitizeJsonCandidate(str: string): string {
     }
   }
 
+  // Handle unclosed markdown code fence (e.g. copied from start without closing fence)
+  s = s.replace(/^`{3,}(?:json)?\s*/i, "").replace(/\s*`{3,}$/, "");
+
   // 2. Decode HTML entities that often get injected when copying from chat/web viewers
   s = s
-    .replace(/&#x20;/g, " ")
-    .replace(/&nbsp;/g, " ")
     .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
     .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#x20;/g, " ");
 
-  // 3. Remove trailing backslashes before newlines (e.g. markdown line continuations)
+  // 3. Remove single-line and multi-line comments outside of strings
+  s = s.replace(/\/\*[\s\S]*?\*\//g, "");
+  s = s.replace(/(^|[^\\:])\/\/.*$/gm, "$1");
+
+  // 4. Remove trailing backslashes before newlines (e.g. markdown line continuations)
   s = s.replace(/\\+(\r?\n)/g, "$1");
 
-  // 4. Normalize curly/smart quotes to standard double/single quotes
+  // 5. Normalize curly/smart quotes to standard double/single quotes
   s = s
     .replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"')
     .replace(/[\u2018\u2019\u201A\u201B]/g, "'");
 
-  // 5. Clean trailing commas before closing brackets and braces
-  s = s.replace(/,\s*([\]}])/g, "$1");
+  // 6. Clean trailing commas before closing brackets and braces
+  s = s.replace(/,(?:\s*,)*\s*([\]}])/g, "$1");
 
   return s;
+}
+
+function getItemTitle(item: any): string {
+  if (!item) return "";
+  if (typeof item === "string") return item.trim();
+  if (typeof item === "object") {
+    const candidate =
+      item.title ||
+      item.name ||
+      item.topic ||
+      item.unit ||
+      item.module ||
+      item.label ||
+      item.text;
+    if (typeof candidate === "string") return candidate.trim();
+  }
+  return "";
 }
 
 /**
@@ -193,9 +220,28 @@ export function tryParseSyllabusJson(
     }
   }
 
+  // Tolerant parsing fallback: repair unclosed brackets/quotes if standard parse failed
+  if (!parsed) {
+    const tolerantRes = tolerantParseSyllabus(cleaned);
+    if (tolerantRes.items && tolerantRes.items.length > 0) {
+      const detectedTitle =
+        tolerantRes.courseTitle?.trim() ||
+        fallbackTitle?.trim() ||
+        tolerantRes.items[0]?.title ||
+        "Course Syllabus";
+      return {
+        id: `syllabus-${Date.now()}`,
+        fileName: detectedTitle,
+        lastModified: "Just now",
+        items: tolerantRes.items,
+        isDraft: false,
+      };
+    }
+  }
+
   if (!parsed || typeof parsed !== "object") return null;
 
-  // 4. Extract items and title
+  // 4. Extract items and title supporting multiple LLM schemas
   let rawItems: any[] | null = null;
   let jsonTitle = "";
 
@@ -204,9 +250,26 @@ export function tryParseSyllabusJson(
   } else if (parsed && typeof parsed === "object") {
     if (Array.isArray(parsed.items)) {
       rawItems = parsed.items;
+    } else if (Array.isArray(parsed.syllabus)) {
+      rawItems = parsed.syllabus;
     } else if (parsed.syllabus && Array.isArray(parsed.syllabus.items)) {
       rawItems = parsed.syllabus.items;
+    } else if (Array.isArray(parsed.units)) {
+      rawItems = parsed.units;
+    } else if (Array.isArray(parsed.modules)) {
+      rawItems = parsed.modules;
+    } else if (Array.isArray(parsed.topics)) {
+      rawItems = parsed.topics;
+    } else if (Array.isArray(parsed.sections)) {
+      rawItems = parsed.sections;
+    } else if (Array.isArray(parsed.curriculum)) {
+      rawItems = parsed.curriculum;
+    } else if (parsed.data && Array.isArray(parsed.data.items)) {
+      rawItems = parsed.data.items;
+    } else if (Array.isArray(parsed.data)) {
+      rawItems = parsed.data;
     }
+
     jsonTitle =
       parsed.courseTitle ||
       parsed.fileName ||
@@ -218,15 +281,15 @@ export function tryParseSyllabusJson(
       parsed.syllabus?.courseTitle ||
       parsed.syllabus?.fileName ||
       parsed.syllabus?.title ||
+      parsed.data?.courseTitle ||
+      parsed.data?.title ||
       "";
   }
 
   if (!rawItems || rawItems.length === 0) return null;
 
-  // Verify that it actually looks like syllabus items (at least one object has a non-empty string title)
-  const isLikelySyllabus = rawItems.some(
-    (item) => item && typeof item === "object" && typeof item.title === "string" && item.title.trim().length > 0,
-  );
+  // Verify that it actually looks like syllabus items (at least one item has a non-empty title/name)
+  const isLikelySyllabus = rawItems.some((item) => getItemTitle(item).length > 0);
   if (!isLikelySyllabus) return null;
 
   let detectedTitle = jsonTitle.trim();
@@ -241,29 +304,41 @@ export function tryParseSyllabusJson(
 
   // If still no title and rawItems exist, derive from first item title
   if (!detectedTitle && rawItems.length > 0) {
-    const first = rawItems[0];
-    if (first && typeof first.title === "string" && first.title.trim()) {
-      const cleanFirst = first.title
-        .trim()
+    const firstTitle = getItemTitle(rawItems[0]);
+    if (firstTitle) {
+      const cleanFirst = firstTitle
         .replace(/^(?:unit|module|chapter|co)\s*[\divx]+[:\-–]\s*/i, "")
         .trim();
-      detectedTitle = cleanFirst || first.title.trim();
+      detectedTitle = cleanFirst || firstTitle;
     }
   }
 
   // Recursive normalizer to build full SyllabusItem nodes
   function normalizeNode(node: any, prefix: string, index: number): SyllabusItem {
-    const id = node.id && typeof node.id === "string" ? node.id : `${prefix}-${index + 1}`;
-    const title = typeof node.title === "string" ? node.title.trim() : `Topic ${index + 1}`;
-    const status: TopicStatus = ["done", "partial", "barely", "untouched"].includes(node.status)
-      ? node.status
-      : "untouched";
-    const hasNote = Boolean(node.hasNote || node.note);
-    const isExpanded = node.isExpanded !== undefined ? Boolean(node.isExpanded) : true;
+    const id =
+      node && typeof node === "object" && node.id && typeof node.id === "string"
+        ? node.id
+        : `${prefix}-${index + 1}`;
+    const rawTitle = getItemTitle(node);
+    const title = rawTitle || `Topic ${index + 1}`;
+    const status: TopicStatus =
+      node && typeof node === "object" && ["done", "partial", "barely", "untouched"].includes(node.status)
+        ? node.status
+        : "untouched";
+    const hasNote = Boolean(node && typeof node === "object" && (node.hasNote || node.note));
+    const isExpanded =
+      node && typeof node === "object" && node.isExpanded !== undefined
+        ? Boolean(node.isExpanded)
+        : true;
+
+    const rawChildren =
+      node && typeof node === "object"
+        ? node.children || node.subtopics || node.subSections || node.sections || node.items
+        : undefined;
 
     const children =
-      Array.isArray(node.children) && node.children.length > 0
-        ? node.children.map((child: any, cIdx: number) => normalizeNode(child, id, cIdx))
+      Array.isArray(rawChildren) && rawChildren.length > 0
+        ? rawChildren.map((child: any, cIdx: number) => normalizeNode(child, id, cIdx))
         : undefined;
 
     return {
@@ -271,7 +346,7 @@ export function tryParseSyllabusJson(
       title,
       status,
       hasNote,
-      note: node.note,
+      note: node && typeof node === "object" ? node.note : undefined,
       isExpanded,
       children,
     };
@@ -287,6 +362,43 @@ export function tryParseSyllabusJson(
     items,
     isDraft: false,
   };
+}
+
+/**
+ * Detects whether raw input looks like an attempted JSON or .theseus file.
+ * Returns 'theseus', 'json', or null if it appears to be plain unstructured text.
+ */
+export function detectAttemptedJsonOrTheseus(
+  text: string,
+): "theseus" | "json" | null {
+  if (!text || typeof text !== "string") return null;
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  // 1. Check for .theseus schema indicators
+  const isTheseusLike =
+    (trimmed.includes('"id"') &&
+      (trimmed.includes('"syllabus-') || trimmed.includes('"lastModified"'))) ||
+    (trimmed.includes('"fileName"') &&
+      (trimmed.includes('"items"') || trimmed.includes('"lastModified"')));
+
+  if (isTheseusLike) return "theseus";
+
+  // 2. Check for JSON-like syntax indicators
+  const isJsonLike =
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    trimmed.startsWith("```json") ||
+    trimmed.startsWith("```") ||
+    /```(?:json)?\s*[\{\[]/i.test(trimmed) ||
+    (/"(?:courseTitle|items|units|modules|topics|syllabus|children)"\s*:/i.test(
+      trimmed,
+    ) &&
+      (trimmed.includes("{") || trimmed.includes("[")));
+
+  if (isJsonLike) return "json";
+
+  return null;
 }
 
 /**
