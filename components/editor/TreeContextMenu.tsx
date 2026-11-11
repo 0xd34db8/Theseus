@@ -12,6 +12,7 @@ import {
 
 export interface TreeContextMenuProps {
   item: SyllabusItem;
+  position?: { x: number; y: number } | null;
   onUpdateStatus: (itemId: string, status: TopicStatus) => void;
   onToggleNote?: (itemId: string) => void;
   onStartAddSubtopic?: (itemId: string) => void;
@@ -22,6 +23,7 @@ export interface TreeContextMenuProps {
 
 export function TreeContextMenu({
   item,
+  position,
   onUpdateStatus,
   onToggleNote,
   onStartAddSubtopic,
@@ -31,8 +33,23 @@ export function TreeContextMenu({
 }: TreeContextMenuProps) {
   return (
     <div
-      className="absolute right-0 top-full mt-1 w-44 bg-card rounded-xl shadow-xl border border-border py-1.5 z-50 text-xs text-foreground animate-in fade-in zoom-in-95 duration-100"
+      data-tree-context-menu="true"
+      className={`${
+        position ? "fixed" : "absolute right-0 top-full mt-1"
+      } w-44 bg-card rounded-xl shadow-xl border border-border py-1.5 z-50 text-xs text-foreground animate-in fade-in zoom-in-95 duration-100`}
+      style={
+        position
+          ? {
+              left: `${position.x}px`,
+              top: `${position.y}px`,
+            }
+          : undefined
+      }
       onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       <div className="px-3 py-1 font-semibold text-[10px] text-muted-foreground uppercase tracking-wider">
         Progress Status

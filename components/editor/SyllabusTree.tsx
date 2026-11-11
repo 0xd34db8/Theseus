@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SyllabusItem, TopicStatus } from "@/types/syllabus";
 import { NoteIcon } from "@/components/ui/NoteIcon";
 import {
@@ -72,6 +72,10 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
 
   const [isJsonMode, setIsJsonMode] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [addingSubtopicToId, setAddingSubtopicToId] = useState<string | null>(
     null,
   );
@@ -80,6 +84,67 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
   const [rootInput, setRootInput] = useState("");
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [editingTopicTitle, setEditingTopicTitle] = useState("");
+
+  const getMenuPosition = (x: number, y: number) => {
+    const menuWidth = 180;
+    const menuHeight = 280;
+    const padding = 8;
+
+    const viewportWidth =
+      typeof window !== "undefined" ? window.innerWidth : 1000;
+    const viewportHeight =
+      typeof window !== "undefined" ? window.innerHeight : 800;
+
+    let left = x;
+    let top = y;
+
+    if (left + menuWidth > viewportWidth - padding) {
+      left = Math.max(padding, viewportWidth - menuWidth - padding);
+    }
+
+    if (top + menuHeight > viewportHeight - padding) {
+      top = Math.max(padding, viewportHeight - menuHeight - padding);
+    }
+
+    return { x: left, y: top };
+  };
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+
+    const handleGlobalPointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("[data-tree-context-menu]")) {
+        return;
+      }
+      setActiveMenuId(null);
+      setContextMenuPosition(null);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveMenuId(null);
+        setContextMenuPosition(null);
+      }
+    };
+
+    const handleClose = () => {
+      setActiveMenuId(null);
+      setContextMenuPosition(null);
+    };
+
+    window.addEventListener("pointerdown", handleGlobalPointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("wheel", handleClose, { passive: true });
+    window.addEventListener("resize", handleClose);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleGlobalPointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("wheel", handleClose);
+      window.removeEventListener("resize", handleClose);
+    };
+  }, [activeMenuId]);
 
   const handleCreateSubtopic = (parentId: string) => {
     if (subtopicInput.trim() && onAddTopic) {
@@ -166,6 +231,14 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
             level === 0 ? "mt-1 font-medium" : "my-0.5"
           }`}
           style={{ paddingLeft: `${Math.max(level * 14, 2)}px` }}
+          onContextMenu={(e) => {
+            if (editingTopicId === item.id) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onSelectTopic(item);
+            setContextMenuPosition(getMenuPosition(e.clientX, e.clientY));
+            setActiveMenuId(item.id);
+          }}
         >
           {/* Collapse/Expand Toggle or Spacer */}
           {hasChildren ? (
@@ -209,6 +282,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                 onChange={(e) => setEditingTopicTitle(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
+                onContextMenu={(e) => e.stopPropagation()}
                 onFocus={(e) => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -253,7 +327,13 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setActiveMenuId(activeMenuId === item.id ? null : item.id);
+                if (activeMenuId === item.id) {
+                  setActiveMenuId(null);
+                  setContextMenuPosition(null);
+                } else {
+                  setActiveMenuId(item.id);
+                  setContextMenuPosition(null);
+                }
               }}
               className="w-5 h-5 flex items-center justify-center rounded-sm hover:bg-subtle text-muted-foreground hover:text-foreground cursor-pointer"
               title="Options"
@@ -266,6 +346,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
           {activeMenuId === item.id && (
             <TreeContextMenu
               item={item}
+              position={contextMenuPosition}
               onUpdateStatus={onUpdateStatus}
               onToggleNote={onToggleNote}
               onStartAddSubtopic={(parentId) => {
@@ -277,7 +358,10 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                 setEditingTopicTitle(title);
               }}
               onDeleteTopic={onDeleteTopic}
-              onClose={() => setActiveMenuId(null)}
+              onClose={() => {
+                setActiveMenuId(null);
+                setContextMenuPosition(null);
+              }}
             />
           )}
         </div>
@@ -348,7 +432,10 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
   return (
     <div
       className="h-full flex flex-col select-none font-manrope overflow-hidden"
-      onClick={() => setActiveMenuId(null)}
+      onClick={() => {
+        setActiveMenuId(null);
+        setContextMenuPosition(null);
+      }}
     >
       {isJsonMode ? (
         <JsonTreeEditor
