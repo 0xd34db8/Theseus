@@ -66,7 +66,7 @@ const customComponents: Components = {
     if (isInline) {
       return (
         <code
-          className="px-1.5 py-0.5 rounded-sm bg-subtle border border-border font-mono text-[11px] text-foreground font-medium"
+          className="px-1.5 py-0.5 rounded-sm bg-subtle border border-border font-mono text-[11px] text-foreground font-medium before:content-none after:content-none before:hidden after:hidden"
           {...props}
         >
           {children}
