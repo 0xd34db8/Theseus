@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TopBar } from "@/components/editor/TopBar";
 import { SyllabusTree } from "@/components/editor/SyllabusTree";
 import { NoteEditor } from "@/components/editor/NoteEditor";
@@ -33,7 +33,10 @@ import {
 
 export default function EditPage() {
   const [syllabus, setSyllabus] = useState<SyllabusData>(initialSyllabusData);
+  const syllabusRef = useRef<SyllabusData>(syllabus);
+  syllabusRef.current = syllabus;
   const [selectedTopicId, setSelectedTopicId] = useState<string>("");
+  const activeEditorFlushRef = useRef<(() => void) | null>(null);
   const [editorSearchQuery, setEditorSearchQuery] = useState<string>("");
   const [searchMatchInfo, setSearchMatchInfo] = useState<{
     current: number;
@@ -138,6 +141,7 @@ export default function EditPage() {
     const restoredItems = restoreTreeFromSnapshot(prevSnapshot, syllabus.items);
     setSyllabus((prev) => {
       const updated = { ...prev, isDraft: false, items: restoredItems };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -153,6 +157,7 @@ export default function EditPage() {
     const restoredItems = restoreTreeFromSnapshot(nextSnapshot, syllabus.items);
     setSyllabus((prev) => {
       const updated = { ...prev, isDraft: false, items: restoredItems };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -257,6 +262,7 @@ export default function EditPage() {
       list[0] ||
       initialSyllabusData;
     setSyllabus(active);
+    syllabusRef.current = active;
     if (active.items && active.items.length > 0) {
       setSelectedTopicId(active.items[0].id);
     }
@@ -313,12 +319,15 @@ export default function EditPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        exportSyllabusAsFile(syllabus);
+        if (activeEditorFlushRef.current) {
+          activeEditorFlushRef.current();
+        }
+        exportSyllabusAsFile(syllabusRef.current);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [syllabus]);
+  }, []);
 
   // Load saved tree pane width from localStorage on mount
   useEffect(() => {
@@ -428,6 +437,7 @@ export default function EditPage() {
           isExpanded: !item.isExpanded,
         })),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -445,27 +455,33 @@ export default function EditPage() {
           status,
         })),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
   };
 
   // Save note for topic
-  const handleSaveNote = (topicId: string, note: TopicNote) => {
-    setSyllabus((prev) => {
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: updateItemInTree(prev.items, topicId, (item) => ({
-          ...item,
-          hasNote: true,
-          note,
-        })),
-      };
-      saveSyllabus(updated);
-      return updated;
-    });
-  };
+  const handleSaveNote = useCallback((topicId: string, note: TopicNote) => {
+    const current = syllabusRef.current;
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: updateItemInTree(current.items, topicId, (item) => ({
+        ...item,
+        hasNote: true,
+        note: {
+          ...item.note,
+          ...note,
+          content: note.content !== undefined ? note.content : (item.note?.content || ""),
+          subComments: note.subComments !== undefined ? note.subComments : item.note?.subComments,
+        },
+      })),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    saveSyllabus(updated);
+  }, []);
 
   // Toggle note existence
   const handleToggleNote = (itemId: string) => {
@@ -493,6 +509,7 @@ export default function EditPage() {
           };
         }),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -501,6 +518,7 @@ export default function EditPage() {
   const handleFileNameChange = (name: string) => {
     setSyllabus((prev) => {
       const updated = { ...prev, isDraft: false, fileName: name };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -514,6 +532,7 @@ export default function EditPage() {
         isDraft: false,
         items: deleteItemFromTree(prev.items, itemId),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -536,6 +555,7 @@ export default function EditPage() {
         isDraft: false,
         items: addItemToTree(prev.items, parentId, newItem),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -555,13 +575,17 @@ export default function EditPage() {
           note: item.note ? { ...item.note, title: trimmed } : undefined,
         })),
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
   };
 
   const handleExport = () => {
-    exportSyllabusAsFile(syllabus);
+    if (activeEditorFlushRef.current) {
+      activeEditorFlushRef.current();
+    }
+    exportSyllabusAsFile(syllabusRef.current);
   };
 
   const handleUpdateItems = (newItems: SyllabusItem[]) => {
@@ -572,6 +596,7 @@ export default function EditPage() {
         isDraft: false,
         items: newItems,
       };
+      syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
@@ -597,6 +622,7 @@ export default function EditPage() {
         onExport={handleExport}
         onApiKeyClick={() => setIsApiKeyModalOpen(true)}
         apiKeyConfigured={Boolean(apiKey)}
+        onHomeClick={() => activeEditorFlushRef.current?.()}
       />
 
       {/* Content Area with Split Panes taking full screen */}
@@ -629,6 +655,9 @@ export default function EditPage() {
             onUpdateTitle={handleFileNameChange}
             selectedTopicId={selectedTopicId}
             onSelectTopic={(topic) => {
+              if (activeEditorFlushRef.current) {
+                activeEditorFlushRef.current();
+              }
               setSelectedTopicId(topic.id);
               setMobileTab("editor");
             }}
@@ -739,6 +768,7 @@ export default function EditPage() {
           }`}
         >
           <NoteEditor
+            key={selectedTopic?.id || "empty"}
             selectedTopic={selectedTopic}
             onSaveNote={handleSaveNote}
             onUpdateStatus={handleUpdateStatus}
@@ -756,6 +786,9 @@ export default function EditPage() {
             onSearchMatchChange={setSearchMatchInfo}
             onRegisterSearchActions={(actions) => {
               searchActionsRef.current = actions;
+            }}
+            onRegisterFlush={(flush) => {
+              activeEditorFlushRef.current = flush;
             }}
           />
         </div>

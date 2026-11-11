@@ -20,6 +20,7 @@ interface TopBarProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onMaximize?: () => void;
+  onHomeClick?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -37,6 +38,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onClose,
   onMinimize,
   onMaximize,
+  onHomeClick,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(fileName);
@@ -272,6 +274,7 @@ export const TopBar: React.FC<TopBarProps> = ({
       onClose={onClose}
       onMinimize={onMinimize}
       onMaximize={onMaximize}
+      onHomeClick={onHomeClick}
     />
   );
 };
