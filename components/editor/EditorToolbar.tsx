@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { type Editor } from "@tiptap/react";
 import {
   Undo2,
@@ -25,7 +26,20 @@ import {
   Sigma,
   RemoveFormatting,
   ChevronUp,
+  ChevronDown,
+  Check,
 } from "lucide-react";
+
+const FONT_SIZE_OPTIONS = [
+  { value: "12", label: "12" },
+  { value: "14", label: "14" },
+  { value: "16", label: "16 (normal)" },
+  { value: "18", label: "18" },
+  { value: "20", label: "20" },
+  { value: "24", label: "24" },
+  { value: "32", label: "32" },
+  { value: "48", label: "48" },
+];
 
 export interface EditorToolbarProps {
   editor: Editor | null;
@@ -44,8 +58,6 @@ export function EditorToolbar({
   showClearFormatting = true,
   onSlideUp,
 }: EditorToolbarProps) {
-  if (!editor) return null;
-
   const btnClass = (isActive: boolean, isDisabled: boolean = false) =>
     `${compact ? "p-1" : "p-1.5"} rounded transition-colors cursor-pointer ${
       isDisabled
@@ -60,79 +72,208 @@ export function EditorToolbar({
     ? "w-px h-3.5 bg-border mx-0.5 shrink-0"
     : "w-px h-4 bg-border mx-1 shrink-0";
 
-  // Item / Font Size calculation
-  const isImageActive = editor.isActive("image");
-  const currentImageAttrs = isImageActive
-    ? editor.getAttributes("image")
-    : null;
+  // Font & Item Size Combobox state
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState("16 (normal)");
+  const [popoverCoords, setPopoverCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const comboboxRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isTypingRef = useRef(false);
 
-  let currentImagePreset = "auto";
-  if (isImageActive && currentImageAttrs?.width) {
-    const parentEl =
-      editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
-    const maxW = parentEl?.clientWidth || 700;
-    const numericWidth =
-      typeof currentImageAttrs.width === "number"
-        ? currentImageAttrs.width
-        : parseInt(String(currentImageAttrs.width), 10);
-    if (!isNaN(numericWidth)) {
-      const ratio = numericWidth / maxW;
-      if (ratio <= 0.35) currentImagePreset = "25%";
-      else if (ratio <= 0.6) currentImagePreset = "50%";
-      else if (ratio <= 0.85) currentImagePreset = "75%";
-      else currentImagePreset = "100%";
+  const updatePopoverCoords = useCallback(() => {
+    if (comboboxRef.current) {
+      const rect = comboboxRef.current.getBoundingClientRect();
+      const popoverWidth = Math.max(rect.width, 116);
+      const maxLeft =
+        typeof window !== "undefined"
+          ? window.innerWidth - popoverWidth - 8
+          : rect.left;
+      const left = Math.max(8, Math.min(rect.left, maxLeft));
+      setPopoverCoords({
+        top: rect.bottom + 4,
+        left,
+        width: popoverWidth,
+      });
     }
-  }
+  }, []);
 
-  const currentFontSize =
-    editor.getAttributes("fontSize")?.size || "default";
-  const currentSizeValue = isImageActive
-    ? currentImagePreset
-    : currentFontSize;
+  const toggleOpen = useCallback(() => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      if (next) updatePopoverCoords();
+      return next;
+    });
+  }, [updatePopoverCoords]);
 
-  const handleSizeChange = (val: string) => {
-    const { from, to } = editor.state.selection;
-    let hasImageInSelection = false;
-    editor.state.doc.nodesBetween(from, to, (node) => {
-      if (node.type.name === "image") {
-        hasImageInSelection = true;
+  // Compute active size for text or image
+  const getActiveSize = useCallback(() => {
+    if (!editor) return "16 (normal)";
+
+    // 1. If an image is selected
+    if (editor.isActive("image")) {
+      const imageAttrs = editor.getAttributes("image");
+      if (!imageAttrs.width) return "16 (normal)";
+      const w =
+        typeof imageAttrs.width === "number"
+          ? imageAttrs.width
+          : parseInt(String(imageAttrs.width), 10);
+      if (isNaN(w)) return "16 (normal)";
+
+      const parentEl =
+        editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
+      const maxW = parentEl?.clientWidth || 700;
+      const ratio = w / maxW;
+
+      if (Math.abs(ratio - 0.25) < 0.05) return "12";
+      if (Math.abs(ratio - 0.35) < 0.05) return "14";
+      if (Math.abs(ratio - 0.5) < 0.05) return "18";
+      if (Math.abs(ratio - 0.65) < 0.05) return "20";
+      if (Math.abs(ratio - 0.75) < 0.05) return "24";
+      if (Math.abs(ratio - 0.9) < 0.05) return "32";
+      if (Math.abs(ratio - 1.0) < 0.05) return "48";
+      return String(w);
+    }
+
+    // 2. Custom fontSize mark
+    const customSize = editor.getAttributes("fontSize")?.size;
+    if (customSize) {
+      const parsed = parseInt(String(customSize), 10);
+      if (!isNaN(parsed)) {
+        return parsed === 16 ? "16 (normal)" : String(parsed);
       }
+    }
+
+    // 3. Heading levels
+    if (editor.isActive("heading", { level: 1 })) return "32";
+    if (editor.isActive("heading", { level: 2 })) return "24";
+    if (editor.isActive("heading", { level: 3 })) return "20";
+    if (editor.isActive("heading", { level: 4 })) return "18";
+    if (editor.isActive("heading", { level: 5 })) return "16 (normal)";
+    if (editor.isActive("heading", { level: 6 })) return "14";
+
+    // 4. Computed style from selection anchor DOM node
+    try {
+      const sel = window.getSelection();
+      if (sel && sel.anchorNode) {
+        const el =
+          sel.anchorNode instanceof HTMLElement
+            ? sel.anchorNode
+            : sel.anchorNode.parentElement;
+        if (el && editor.view?.dom?.contains(el)) {
+          const computed = window.getComputedStyle(el).fontSize;
+          if (computed) {
+            const parsed = Math.round(parseFloat(computed));
+            if (!isNaN(parsed) && parsed > 0) {
+              return parsed === 16 ? "16 (normal)" : String(parsed);
+            }
+          }
+        }
+      }
+    } catch {}
+
+    return "16 (normal)";
+  }, [editor]);
+
+  // Keep input in sync with highlighted text or image
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateSize = () => {
+      if (isTypingRef.current) return;
+      setInputValue(getActiveSize());
+    };
+
+    updateSize();
+
+    editor.on("selectionUpdate", updateSize);
+    editor.on("transaction", updateSize);
+
+    return () => {
+      editor.off("selectionUpdate", updateSize);
+      editor.off("transaction", updateSize);
+    };
+  }, [editor, getActiveSize]);
+
+  // Dismissal and repositioning listeners for dropdown popover
+  useEffect(() => {
+    if (!isOpen) return;
+
+    updatePopoverCoords();
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        comboboxRef.current?.contains(target) ||
+        popoverRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
+    const handleScrollOrResize = (e: Event) => {
+      if (popoverRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
+    };
+  }, [isOpen, updatePopoverCoords]);
+
+  const applySize = (rawVal: string) => {
+    if (!editor) return;
+    const clean = rawVal.replace(/\(normal\)/gi, "").trim();
+    const num = parseInt(clean, 10);
+
+    const isImg = editor.isActive("image");
+    const { from, to } = editor.state.selection;
+    let hasImg = false;
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      if (node.type.name === "image") hasImg = true;
     });
 
-    if (isImageActive || hasImageInSelection) {
+    if (isImg || hasImg) {
       const parentEl =
         editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
       const maxW = parentEl?.clientWidth || 700;
 
       let targetWidth: number | null = null;
-      if (val === "25%" || val === "12px") {
-        targetWidth = Math.round(maxW * 0.25);
-      } else if (val === "35%" || val === "14px") {
-        targetWidth = Math.round(maxW * 0.35);
-      } else if (val === "50%" || val === "16px") {
-        targetWidth = Math.round(maxW * 0.5);
-      } else if (val === "60%" || val === "18px") {
-        targetWidth = Math.round(maxW * 0.6);
-      } else if (val === "70%" || val === "20px") {
-        targetWidth = Math.round(maxW * 0.7);
-      } else if (val === "75%" || val === "24px") {
-        targetWidth = Math.round(maxW * 0.75);
-      } else if (val === "90%" || val === "32px") {
-        targetWidth = Math.round(maxW * 0.9);
-      } else if (val === "100%" || val === "48px") {
-        targetWidth = Math.round(maxW * 1.0);
-      } else if (val === "auto" || val === "default") {
-        targetWidth = null;
+      if (
+        isNaN(num) ||
+        clean.toLowerCase() === "normal" ||
+        clean.toLowerCase() === "auto" ||
+        num === 16
+      ) {
+        targetWidth = null; // resets to normal / natural
+      } else if (num <= 48) {
+        if (num <= 12) targetWidth = Math.round(maxW * 0.25);
+        else if (num <= 14) targetWidth = Math.round(maxW * 0.35);
+        else if (num <= 18) targetWidth = Math.round(maxW * 0.5);
+        else if (num <= 20) targetWidth = Math.round(maxW * 0.65);
+        else if (num <= 24) targetWidth = Math.round(maxW * 0.75);
+        else if (num <= 32) targetWidth = Math.round(maxW * 0.9);
+        else targetWidth = Math.round(maxW * 1.0);
       } else {
-        const parsed = parseInt(val, 10);
-        if (!isNaN(parsed)) {
-          targetWidth = val.endsWith("%")
-            ? Math.round(maxW * (parsed / 100))
-            : parsed;
-        }
+        targetWidth = Math.min(num, maxW);
       }
 
-      if (isImageActive) {
+      if (isImg) {
         editor
           .chain()
           .focus()
@@ -140,7 +281,7 @@ export function EditorToolbar({
           .run();
       }
 
-      if (hasImageInSelection && !isImageActive) {
+      if (hasImg && !isImg) {
         editor.state.doc.nodesBetween(from, to, (node, pos) => {
           if (node.type.name === "image") {
             editor.commands.command(({ tr }) => {
@@ -155,24 +296,22 @@ export function EditorToolbar({
       }
     }
 
-    if (!isImageActive) {
-      if (val === "default" || val === "auto") {
+    if (!isImg) {
+      if (isNaN(num) || clean.toLowerCase() === "normal" || num === 16) {
         (editor.chain().focus() as any).unsetFontSize().run();
       } else {
-        const fontSizeToApply =
-          val === "25%"
-            ? "12px"
-            : val === "50%"
-              ? "16px"
-              : val === "75%"
-                ? "24px"
-                : val === "100%"
-                  ? "48px"
-                  : val;
-        (editor.chain().focus() as any).setFontSize(fontSizeToApply).run();
+        (editor.chain().focus() as any).setFontSize(`${num}px`).run();
       }
     }
+
+    if (isNaN(num) || clean.toLowerCase() === "normal" || num === 16) {
+      setInputValue("16 (normal)");
+    } else {
+      setInputValue(String(num));
+    }
   };
+
+  if (!editor) return null;
 
   return (
     <div
@@ -209,82 +348,109 @@ export function EditorToolbar({
         </>
       )}
 
-      {/* Style selector */}
-      <select
-        value={
-          editor.isActive("heading", { level: 1 })
-            ? "1"
-            : editor.isActive("heading", { level: 2 })
-              ? "2"
-              : editor.isActive("heading", { level: 3 })
-                ? "3"
-                : editor.isActive("heading", { level: 4 })
-                  ? "4"
-                  : editor.isActive("heading", { level: 5 })
-                    ? "5"
-                    : editor.isActive("heading", { level: 6 })
-                      ? "6"
-                      : "p"
-        }
-        onChange={(e) => {
-          const val = e.target.value;
-          if (val === "p") {
-            editor.chain().focus().setParagraph().run();
-          } else {
-            editor
-              .chain()
-              .focus()
-              .toggleHeading({
-                level: parseInt(val, 10) as 1 | 2 | 3 | 4 | 5 | 6,
-              })
-              .run();
-          }
-        }}
-        className={`bg-card border border-border rounded text-foreground outline-hidden cursor-pointer font-medium hover:border-border ${
-          compact ? "text-[11px] px-1.5 py-0.5" : "text-xs px-2 py-1 rounded-md"
+      {/* Font & Item Size Combobox */}
+      <div
+        ref={comboboxRef}
+        className={`relative flex items-center bg-card border border-border rounded text-foreground outline-hidden ${
+          compact ? "text-[11px] h-6" : "text-xs h-7 rounded-md"
         }`}
-        title="Text style"
       >
-        <option value="p">Normal text</option>
-        <option value="1">Heading 1</option>
-        <option value="2">Heading 2</option>
-        <option value="3">Heading 3</option>
-        <option value="4">Heading 4</option>
-        <option value="5">Heading 5</option>
-        <option value="6">Heading 6</option>
-      </select>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onFocus={(e) => {
+            isTypingRef.current = true;
+            e.target.select();
+          }}
+          onBlur={() => {
+            isTypingRef.current = false;
+            applySize(inputValue);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              isTypingRef.current = false;
+              applySize(inputValue);
+              setIsOpen(false);
+              inputRef.current?.blur();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              isTypingRef.current = false;
+              setIsOpen(false);
+              setInputValue(getActiveSize());
+              inputRef.current?.blur();
+            }
+          }}
+          placeholder="16"
+          className="w-20 sm:w-22 px-1.5 py-0.5 text-center bg-transparent outline-none font-medium text-foreground select-all"
+          title="Font & item size (type any number or select)"
+          aria-label="Font and item size"
+        />
 
-      {/* Font Size & Item Size Selector */}
-      <select
-        value={currentSizeValue}
-        onChange={(e) => handleSizeChange(e.target.value)}
-        className={`bg-card border border-border rounded text-foreground outline-hidden cursor-pointer font-medium hover:border-border ${
-          compact ? "text-[11px] px-1.5 py-0.5" : "text-xs px-2 py-1 rounded-md"
-        }`}
-        title={isImageActive ? "Image size" : "Font size"}
-      >
-        {isImageActive ? (
-          <>
-            <option value="auto">Image: Auto</option>
-            <option value="25%">Image: 25% (Small)</option>
-            <option value="50%">Image: 50% (Medium)</option>
-            <option value="75%">Image: 75% (Large)</option>
-            <option value="100%">Image: 100% (Full)</option>
-          </>
-        ) : (
-          <>
-            <option value="default">Font size</option>
-            <option value="12px">12px</option>
-            <option value="14px">14px</option>
-            <option value="16px">16px (Normal)</option>
-            <option value="18px">18px</option>
-            <option value="20px">20px</option>
-            <option value="24px">24px (Large)</option>
-            <option value="32px">32px (XL)</option>
-            <option value="48px">48px (Huge)</option>
-          </>
-        )}
-      </select>
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={toggleOpen}
+          className="h-full px-1.5 hover:bg-subtle text-muted-foreground hover:text-foreground transition-colors cursor-pointer border-l border-border flex items-center justify-center rounded-r"
+          title="Select size"
+          aria-label="Select size preset"
+        >
+          <ChevronDown className="w-3 h-3" />
+        </button>
+
+        {/* Dropdown Popover via React Portal directly into document.body */}
+        {isOpen &&
+          popoverCoords &&
+          typeof document !== "undefined" &&
+          createPortal(
+            <div
+              ref={popoverRef}
+              style={{
+                position: "fixed",
+                top: `${popoverCoords.top}px`,
+                left: `${popoverCoords.left}px`,
+                minWidth: `${popoverCoords.width}px`,
+                zIndex: 9999,
+              }}
+              className="bg-card border border-border rounded-xl shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100 max-h-56 overflow-y-auto font-manrope text-xs"
+            >
+              {FONT_SIZE_OPTIONS.map((opt) => {
+                const cleanInput = inputValue.replace(/\(normal\)/gi, "").trim();
+                const active =
+                  cleanInput === opt.value ||
+                  (opt.value === "16" && cleanInput === "16");
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={() => {
+                      setIsOpen(false);
+                      applySize(opt.value);
+                    }}
+                    className={`w-full text-left px-2.5 py-1 hover:bg-subtle transition-colors cursor-pointer flex items-center justify-between ${
+                      active
+                        ? "bg-accent/15 text-accent font-semibold"
+                        : "text-foreground"
+                    }`}
+                  >
+                    <span>{opt.label}</span>
+                    {active && <Check className="w-3 h-3 text-accent shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )}
+      </div>
 
       <div className={dividerClass} />
 

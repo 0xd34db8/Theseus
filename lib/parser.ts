@@ -200,42 +200,56 @@ export function tryParseSyllabusJson(
     }
   };
 
-  const cleaned = sanitizeJsonCandidate(trimmed);
-  let parsed: any = safeParse(cleaned);
+  // 1. Direct parse attempt (preserves code blocks, comments, and quotes inside notes in valid .theseus files)
+  let parsed: any = safeParse(trimmed);
 
-  // Fallback: extract substring between first { and last } or first [ and last ]
+  // 2. Extract markdown code block if present without destructive character replacements
   if (!parsed) {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      parsed = safeParse(cleaned.substring(firstBrace, lastBrace + 1));
+    const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      parsed = safeParse(codeBlockMatch[1].trim());
     }
   }
 
+  // 3. Fallback to sanitized candidate for raw unformatted LLM outputs
   if (!parsed) {
-    const firstBracket = cleaned.indexOf("[");
-    const lastBracket = cleaned.lastIndexOf("]");
-    if (firstBracket !== -1 && lastBracket > firstBracket) {
-      parsed = safeParse(cleaned.substring(firstBracket, lastBracket + 1));
-    }
-  }
+    const cleaned = sanitizeJsonCandidate(trimmed);
+    parsed = safeParse(cleaned);
 
-  // Tolerant parsing fallback: repair unclosed brackets/quotes if standard parse failed
-  if (!parsed) {
-    const tolerantRes = tolerantParseSyllabus(cleaned);
-    if (tolerantRes.items && tolerantRes.items.length > 0) {
-      const detectedTitle =
-        tolerantRes.courseTitle?.trim() ||
-        fallbackTitle?.trim() ||
-        tolerantRes.items[0]?.title ||
-        "Course Syllabus";
-      return {
-        id: `syllabus-${Date.now()}`,
-        fileName: detectedTitle,
-        lastModified: "Just now",
-        items: tolerantRes.items,
-        isDraft: false,
-      };
+    // Fallback: extract substring between first { and last } or first [ and last ]
+    if (!parsed) {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        parsed = safeParse(cleaned.substring(firstBrace, lastBrace + 1));
+      }
+    }
+
+    if (!parsed) {
+      const firstBracket = cleaned.indexOf("[");
+      const lastBracket = cleaned.lastIndexOf("]");
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        parsed = safeParse(cleaned.substring(firstBracket, lastBracket + 1));
+      }
+    }
+
+    // Tolerant parsing fallback: repair unclosed brackets/quotes if standard parse failed
+    if (!parsed) {
+      const tolerantRes = tolerantParseSyllabus(cleaned);
+      if (tolerantRes.items && tolerantRes.items.length > 0) {
+        const detectedTitle =
+          tolerantRes.courseTitle?.trim() ||
+          fallbackTitle?.trim() ||
+          tolerantRes.items[0]?.title ||
+          "Course Syllabus";
+        return {
+          id: `syllabus-${Date.now()}`,
+          fileName: detectedTitle,
+          lastModified: "Just now",
+          items: tolerantRes.items,
+          isDraft: false,
+        };
+      }
     }
   }
 
@@ -544,18 +558,42 @@ export function tolerantParseSyllabus(
     return { items: null, isValid };
   }
 
-  // Build existing item lookup by ID and lowercase title to preserve notes and statuses
-  const existingMap = new Map<string, SyllabusItem>();
-  function indexExisting(list: SyllabusItem[]) {
-    for (const it of list) {
-      if (it.id) existingMap.set(it.id, it);
-      if (it.title) existingMap.set(it.title.trim().toLowerCase(), it);
-      if (it.children) indexExisting(it.children);
-    }
+  // Build existing item lookup by ID, hierarchical path, and title
+  const existingById = new Map<string, SyllabusItem>();
+  const existingByPath = new Map<string, SyllabusItem>();
+  const existingBySiblingTitle = new Map<string, SyllabusItem>();
+  const existingByTitleList = new Map<string, SyllabusItem[]>();
+  const usedIds = new Set<string>();
+
+  function indexExisting(list: SyllabusItem[], parentPath: string = "") {
+    list.forEach((it, idx) => {
+      const currentPath = parentPath ? `${parentPath}.${idx}` : `${idx}`;
+      if (it.id) existingById.set(it.id, it);
+      existingByPath.set(currentPath, it);
+
+      if (it.title) {
+        const cleanTitle = it.title.trim().toLowerCase();
+        existingBySiblingTitle.set(`${parentPath}:${cleanTitle}`, it);
+
+        const group = existingByTitleList.get(cleanTitle) || [];
+        group.push(it);
+        existingByTitleList.set(cleanTitle, group);
+      }
+
+      if (it.children && it.children.length > 0) {
+        indexExisting(it.children, currentPath);
+      }
+    });
   }
   indexExisting(existingItems);
 
-  function normalizeItem(node: any, prefix: string, idx: number): SyllabusItem {
+  function normalizeItem(
+    node: any,
+    prefix: string,
+    idx: number,
+    parentPath: string = "",
+  ): SyllabusItem {
+    const currentPath = parentPath ? `${parentPath}.${idx}` : `${idx}`;
     const rawTitle =
       typeof node === "string"
         ? node
@@ -563,28 +601,72 @@ export function tolerantParseSyllabus(
           ? String(node.title)
           : `Topic ${idx + 1}`;
     const title = rawTitle.trim() || `Topic ${idx + 1}`;
-    const matched =
-      existingMap.get(title.toLowerCase()) ||
-      (node && node.id ? existingMap.get(node.id) : null);
+    const cleanTitle = title.toLowerCase();
+
+    // 1. Direct ID match
+    let matched: SyllabusItem | null = null;
+    if (node && node.id && typeof node.id === "string" && existingById.has(node.id) && !usedIds.has(node.id)) {
+      matched = existingById.get(node.id)!;
+    }
+
+    // 2. Exact structural path match
+    if (!matched) {
+      const candidateByPath = existingByPath.get(currentPath);
+      if (candidateByPath && !usedIds.has(candidateByPath.id)) {
+        // Path match: either same title or in-place topic rename at same structural position
+        if (candidateByPath.title.trim().toLowerCase() === cleanTitle || !node.id) {
+          matched = candidateByPath;
+        }
+      }
+    }
+
+    // 3. Sibling match within same parent unit
+    if (!matched) {
+      const siblingCandidate = existingBySiblingTitle.get(`${parentPath}:${cleanTitle}`);
+      if (siblingCandidate && !usedIds.has(siblingCandidate.id)) {
+        matched = siblingCandidate;
+      }
+    }
+
+    // 4. Global fallback by title across tree (only unused items)
+    if (!matched) {
+      const candidates = existingByTitleList.get(cleanTitle);
+      if (candidates) {
+        for (const cand of candidates) {
+          if (!usedIds.has(cand.id)) {
+            matched = cand;
+            break;
+          }
+        }
+      }
+    }
+
+    if (matched) {
+      usedIds.add(matched.id);
+    }
 
     const id =
-      node && node.id && typeof node.id === "string"
-        ? node.id
-        : matched
-          ? matched.id
+      matched
+        ? matched.id
+        : node && node.id && typeof node.id === "string" && !usedIds.has(node.id)
+          ? (usedIds.add(node.id), node.id)
           : `${prefix}-${Date.now()}-${idx}`;
+
     const status: TopicStatus =
       node && ["done", "partial", "barely", "untouched"].includes(node.status)
         ? node.status
         : matched
           ? matched.status
           : "untouched";
+
     const note =
       node && node.note ? node.note : matched ? matched.note : undefined;
+
     const hasNote = Boolean(
       (node && (node.hasNote || node.note)) ||
         (matched && (matched.hasNote || matched.note)),
     );
+
     const isExpanded =
       node && node.isExpanded !== undefined
         ? Boolean(node.isExpanded)
@@ -595,7 +677,7 @@ export function tolerantParseSyllabus(
     const children =
       Array.isArray(node.children) && node.children.length > 0
         ? node.children.map((c: any, cIdx: number) =>
-            normalizeItem(c, id, cIdx),
+            normalizeItem(c, id, cIdx, currentPath),
           )
         : undefined;
 
@@ -610,7 +692,7 @@ export function tolerantParseSyllabus(
     };
   }
 
-  const items = rawItems.map((it, idx) => normalizeItem(it, "u", idx));
+  const items = rawItems.map((it, idx) => normalizeItem(it, "u", idx, ""));
 
   let detectedCourseTitle: string | undefined = undefined;
   if (!Array.isArray(rawData) && rawData && typeof rawData === "object") {

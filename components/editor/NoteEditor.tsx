@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   SyllabusItem,
   TopicNote,
@@ -80,6 +80,7 @@ interface NoteEditorProps {
     findNext: () => void;
     findPrev: () => void;
   }) => void;
+  onRegisterFlush?: (flush: () => void) => void;
 }
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({
@@ -96,6 +97,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onSearchChange,
   onSearchMatchChange,
   onRegisterSearchActions,
+  onRegisterFlush,
 }) => {
   const [content, setContent] = useState<string>("");
   const [hasCopiedNotePrompt, setHasCopiedNotePrompt] =
@@ -134,7 +136,82 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     setIsReadingMode((prev) => !prev);
   };
 
+  // Stable references for autosave without closure lag
+  const selectedTopicRef = useRef(selectedTopic);
+  selectedTopicRef.current = selectedTopic;
+
+  const onSaveNoteRef = useRef(onSaveNote);
+  onSaveNoteRef.current = onSaveNote;
+
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isProgrammaticUpdateRef = useRef<boolean>(false);
+  const latestMarkdownRef = useRef<string>(selectedTopic?.note?.content || "");
+  const isDirtyRef = useRef<boolean>(false);
+
+  // Synchronous flush of any pending autosave changes
+  const flushSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
+    const topic = selectedTopicRef.current;
+    if (!topic || !topic.hasNote || !isDirtyRef.current) return;
+
+    isDirtyRef.current = false;
+    const updatedNote: TopicNote = {
+      id: topic.note?.id || `note-${topic.id}`,
+      title: topic.title,
+      content: latestMarkdownRef.current,
+      subComments: topic.note?.subComments,
+      updatedAt: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    };
+    onSaveNoteRef.current(topic.id, updatedNote);
+  }, []);
+
+  const flushSaveRef = useRef(flushSave);
+  flushSaveRef.current = flushSave;
+
+  // Flush pending changes on unmount
+  useEffect(() => {
+    return () => {
+      flushSaveRef.current();
+    };
+  }, []);
+
+  // Flush pending changes if the browser window or tab is closed/navigated
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushSaveRef.current();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // Clear debounce timer and dirty state if a note is toggled off externally
+  useEffect(() => {
+    if (selectedTopic && !selectedTopic.hasNote) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      isDirtyRef.current = false;
+    }
+  }, [selectedTopic?.hasNote]);
+
+  // Expose flush handler to parent (EditPage) for save-before-export, save-before-switch, and save-before-home
+  useEffect(() => {
+    onRegisterFlush?.(() => {
+      flushSaveRef.current();
+    });
+  }, [onRegisterFlush]);
+
   const handleClose = () => {
+    flushSaveRef.current();
     setIsFullscreen(false);
     setIsFullscreenSearchOpen(false);
     setIsReadingMode(false);
@@ -184,27 +261,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [aiError, setAiError] = useState<string | null>(null);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
 
-  // Stable references for autosave without closure lag
-  const selectedTopicRef = useRef(selectedTopic);
-  selectedTopicRef.current = selectedTopic;
-
-  const onSaveNoteRef = useRef(onSaveNote);
-  onSaveNoteRef.current = onSaveNote;
-
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const isProgrammaticUpdateRef = useRef<boolean>(false);
-
-  // Cancel any pending autosave timer whenever topic selection changes or unmounts
-  useEffect(() => {
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
-    };
-  }, [selectedTopic?.id]);
-
   const debounceSave = (updatedMarkdown: string) => {
+    latestMarkdownRef.current = updatedMarkdown;
+    isDirtyRef.current = true;
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
@@ -225,6 +285,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         return;
       }
 
+      isDirtyRef.current = false;
       const topic = selectedTopicRef.current;
       const updatedNote: TopicNote = {
         id: topic.note?.id || `note-${topic.id}`,
@@ -234,6 +295,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         updatedAt: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
+          second: "2-digit",
         }),
       };
       onSaveNoteRef.current(topic.id, updatedNote);
@@ -318,6 +380,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         class:
           "prose max-w-none focus:outline-hidden min-h-[350px] text-sm leading-relaxed text-foreground",
       },
+      handleDOMEvents: {
+        blur: () => {
+          flushSaveRef.current();
+          return false;
+        },
+      },
       handlePaste: (view, event) => {
         // 1. Direct image paste from clipboard via Ctrl+V
         const items = Array.from(event.clipboardData?.items || []);
@@ -379,6 +447,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     onUpdate: ({ editor: ed }) => {
       if (isProgrammaticUpdateRef.current) return;
       const markdown = getEditorMarkdown(ed);
+      latestMarkdownRef.current = markdown;
+      isDirtyRef.current = true;
       setContent(markdown);
       debounceSave(markdown);
     },
@@ -519,38 +589,36 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       setTitleValue(selectedTopic.title);
       setIsEditingTitle(false);
       const noteContent = selectedTopic.note?.content || "";
-      setContent(noteContent);
-      if (editor) {
-        const currentMd = getEditorMarkdown(editor);
-        if (currentMd !== noteContent) {
-          isProgrammaticUpdateRef.current = true;
-          const targetTopicId = selectedTopic.id;
-          queueMicrotask(() => {
-            if (
-              !editor.isDestroyed &&
-              selectedTopicRef.current?.id === targetTopicId
-            ) {
-              editor.commands.setContent(noteContent, { emitUpdate: false });
-            }
-            isProgrammaticUpdateRef.current = false;
-          });
+      if (!isDirtyRef.current) {
+        latestMarkdownRef.current = noteContent;
+        setContent(noteContent);
+        if (editor) {
+          const currentMd = getEditorMarkdown(editor);
+          if (currentMd !== noteContent) {
+            isProgrammaticUpdateRef.current = true;
+            editor.commands.setContent(noteContent, { emitUpdate: false });
+            latestMarkdownRef.current = noteContent;
+            setTimeout(() => {
+              isProgrammaticUpdateRef.current = false;
+            }, 0);
+          }
         }
       }
     } else {
       setContent("");
+      latestMarkdownRef.current = "";
+      isDirtyRef.current = false;
       if (editor) {
         isProgrammaticUpdateRef.current = true;
-        queueMicrotask(() => {
-          if (!editor.isDestroyed && !selectedTopicRef.current) {
-            editor.commands.setContent("", { emitUpdate: false });
-          }
+        editor.commands.setContent("", { emitUpdate: false });
+        setTimeout(() => {
           isProgrammaticUpdateRef.current = false;
-        });
+        }, 0);
       }
     }
     setAiError(null);
     setPendingEmbedUrl(null);
-  }, [selectedTopic?.id, selectedTopic?.note?.updatedAt, editor]);
+  }, [selectedTopic?.id, selectedTopic?.note?.content, editor]);
 
   // Keep titleValue in sync if topic title changes externally (e.g. tree undo/redo or tree rename)
   useEffect(() => {
@@ -572,18 +640,22 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   // Immediate save helper for AI note generation
   const handleAutoSave = (updatedContent: string) => {
-    if (!selectedTopic) return;
+    const topic = selectedTopicRef.current;
+    if (!topic) return;
+    latestMarkdownRef.current = updatedContent;
+    isDirtyRef.current = false;
     const updatedNote: TopicNote = {
-      id: selectedTopic.note?.id || `note-${selectedTopic.id}`,
-      title: selectedTopic.title,
+      id: topic.note?.id || `note-${topic.id}`,
+      title: topic.title,
       content: updatedContent,
-      subComments: selectedTopic.note?.subComments,
+      subComments: topic.note?.subComments,
       updatedAt: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
       }),
     };
-    onSaveNote(selectedTopic.id, updatedNote);
+    onSaveNoteRef.current(topic.id, updatedNote);
   };
 
   // Copy note prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
@@ -626,10 +698,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       );
 
       setContent(generated);
+      latestMarkdownRef.current = generated;
+      isDirtyRef.current = false;
       if (editor) {
         isProgrammaticUpdateRef.current = true;
         editor.commands.setContent(generated, { emitUpdate: false });
-        isProgrammaticUpdateRef.current = false;
+        setTimeout(() => {
+          isProgrammaticUpdateRef.current = false;
+        }, 0);
       }
       handleAutoSave(generated);
     } catch (err: any) {
@@ -745,8 +821,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                     updatedAt: new Date().toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
+                      second: "2-digit",
                     }),
                   };
+                  latestMarkdownRef.current = newNote.content;
+                  isDirtyRef.current = false;
                   onSaveNote(selectedTopic.id, newNote);
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-full text-xs font-medium shadow-xs transition-all cursor-pointer"

@@ -19,13 +19,14 @@
 <p align="center">
   <a href="#overview">Overview</a> •
   <a href="#core-workflow-philosophy">Core Workflow</a> •
-  <a href="#quick-start">Quick Start</a> •
   <a href="#key-features">Key Features</a> •
   <a href="#progress-tracking">Progress Tracking</a> •
+  <a href="#quick-start">Quick Start</a> •
   <a href="#universal-llm-connectivity">LLM Integration</a> •
   <a href="#keyboard-shortcuts">Keyboard Shortcuts</a> •
   <a href="#data-schema-theseus">Data Schema</a> •
-  <a href="#project-structure">Project Structure</a>
+  <a href="#project-structure">Project Structure</a> •
+  <a href="#license">License</a>
 </p>
 
 <p align="center">
@@ -58,7 +59,7 @@ Theseus organizes curriculum documents into interactive, hierarchical study work
 
 ---
 
-## Core Workflow & Philosophy
+## <a id="core-workflow-philosophy"></a>Core Workflow & Philosophy
 
 The foundational design of Theseus centers on a unified study workflow: **bringing the syllabus outline and note-taking into one cohesive workspace for organized, concise, at-a-glance information intake and retrieval**.
 
@@ -302,7 +303,7 @@ Theseus provides flexible AI options. Users can configure API credentials direct
 
 ---
 
-## Data Schema (.theseus)
+## <a id="data-schema-theseus"></a>Data Schema (.theseus)
 
 Files exported with the `.theseus` extension use standardized JSON preserving tree hierarchy, notes, sub-comments, and completion statuses:
 
