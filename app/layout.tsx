@@ -70,12 +70,14 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icon.png", sizes: "32x32", type: "image/png" },
-      { url: "/icon.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon.png", sizes: "256x256", type: "image/png" },
     ],
     apple: [
-      { url: "/icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
   verification: {
@@ -118,6 +120,10 @@ const jsonLd = {
       "@id": "https://theseusmind.vercel.app/#website",
       "url": "https://theseusmind.vercel.app",
       "name": "Theseus",
+      "alternateName": [
+        "Theseus Mind",
+        "Theseus App"
+      ],
       "description":
         "AI-powered syllabus organizer and study workspace",
       "sameAs": [
@@ -133,7 +139,7 @@ const jsonLd = {
         ],
         "logo": {
           "@type": "ImageObject",
-          "url": "https://theseusmind.vercel.app/icon.png",
+          "url": "https://theseusmind.vercel.app/icon-192x192.png",
         },
       },
     },
@@ -148,10 +154,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={manrope.variable} suppressHydrationWarning>
       <head>
-        <meta
-          name="google-site-verification"
-          content="CaeM2PmoY9jYJqQ1ZtJFcVwc-TxgXuCXzqeJDQr9p2c"
-        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
