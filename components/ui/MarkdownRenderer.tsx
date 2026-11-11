@@ -87,6 +87,12 @@ const customComponents: Components = {
   em: ({ children }) => (
     <em className="italic text-foreground-subtle font-manrope">{children}</em>
   ),
+  span: ({ children, style, ...props }: any) => (
+    <span style={style} {...props}>
+      {children}
+    </span>
+  ),
+  u: ({ children }: any) => <u>{children}</u>,
   hr: () => <hr className="my-5 border-t border-border-subtle" />,
   table: ({ children }) => (
     <div className="overflow-x-auto my-3 border border-border rounded-xl">

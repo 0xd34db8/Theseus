@@ -3,7 +3,7 @@ import Underline from "@tiptap/extension-underline";
 import Highlight from "@tiptap/extension-highlight";
 import Superscript from "@tiptap/extension-superscript";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
-import { Extension, Node as TiptapNode, mergeAttributes, InputRule } from "@tiptap/core";
+import { Extension, Node as TiptapNode, Mark, mergeAttributes, InputRule } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { Node as PMNode } from "@tiptap/pm/model";
@@ -749,6 +749,100 @@ export const CustomHighlight = Highlight.extend({
   },
 });
 
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (size: string) => ReturnType;
+      unsetFontSize: () => ReturnType;
+    };
+  }
+}
+
+/**
+ * Custom TipTap FontSize mark extension with HTML span style serialization
+ */
+export const CustomFontSize = Mark.create({
+  name: "fontSize",
+
+  addOptions() {
+    return {
+      HTMLAttributes: {},
+    };
+  },
+
+  addAttributes() {
+    return {
+      size: {
+        default: null,
+        parseHTML: (element) => {
+          return (
+            element.style.fontSize ||
+            element.getAttribute("data-font-size") ||
+            null
+          );
+        },
+        renderHTML: (attributes) => {
+          if (!attributes.size) {
+            return {};
+          }
+          return {
+            style: `font-size: ${attributes.size}`,
+            "data-font-size": attributes.size,
+          };
+        },
+      },
+    };
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: "span[style*='font-size']",
+      },
+      {
+        tag: "span[data-font-size]",
+      },
+    ];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "span",
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+      0,
+    ];
+  },
+
+  addCommands() {
+    return {
+      setFontSize:
+        (size: string) =>
+        ({ chain }) => {
+          return chain().setMark(this.name, { size }).run();
+        },
+      unsetFontSize:
+        () =>
+        ({ chain }) => {
+          return chain().unsetMark(this.name).run();
+        },
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize: {
+          open(_state: any, mark: any) {
+            return `<span style="font-size: ${mark.attrs.size}">`;
+          },
+          close: "</span>",
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
 /**
  * Custom keyboard shortcuts for rich formatting
  */
@@ -989,6 +1083,7 @@ export function createTipTapExtensions(options?: {
     FootnoteDefinition,
     CustomUnderline,
     CustomHighlight,
+    CustomFontSize,
     CustomTaskList,
     CustomTaskItem.configure({
       nested: true,
