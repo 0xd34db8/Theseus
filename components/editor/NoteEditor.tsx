@@ -61,6 +61,33 @@ import {
 } from "./extensions";
 import { EditorToolbar } from "./EditorToolbar";
 
+const STATUS_OPTIONS: {
+  value: TopicStatus;
+  label: string;
+  className: string;
+}[] = [
+  {
+    value: "untouched",
+    label: "Untouched",
+    className: "hover:bg-subtle text-foreground-subtle",
+  },
+  {
+    value: "barely",
+    label: "Barely",
+    className: "hover:bg-status-barely-bg text-status-barely-fg font-medium",
+  },
+  {
+    value: "partial",
+    label: "Partially",
+    className: "hover:bg-status-partial-bg text-status-partial-fg font-medium",
+  },
+  {
+    value: "done",
+    label: "Done",
+    className: "hover:bg-status-done-bg text-status-done-fg font-medium",
+  },
+];
+
 interface NoteEditorProps {
   selectedTopic: SyllabusItem | null;
   onSaveNote: (topicId: string, note: TopicNote) => void;
@@ -120,6 +147,38 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     total: number;
   } | null>(null);
   const fullscreenSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Status Dropdown State
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] =
+    useState<boolean>(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isStatusDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsStatusDropdownOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsStatusDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isStatusDropdownOpen]);
+
+  useEffect(() => {
+    setIsStatusDropdownOpen(false);
+  }, [selectedTopic?.id]);
 
   // Fullscreen toggle & Escape key listener
   const toggleFullscreen = () => {
@@ -931,13 +990,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           <span className="hidden sm:inline text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
             Status:
           </span>
-          <div className="relative inline-flex items-center">
-            <select
-              value={selectedTopic.status}
-              onChange={(e) =>
-                onUpdateStatus(selectedTopic.id, e.target.value as TopicStatus)
-              }
-              className={`appearance-none text-xs font-medium py-1 pl-2.5 pr-5 rounded-full border outline-hidden cursor-pointer transition-colors ${
+          <div
+            ref={statusDropdownRef}
+            className="relative inline-flex items-center"
+          >
+            <button
+              type="button"
+              onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium py-1 pl-2.5 pr-2 rounded-full border outline-hidden cursor-pointer transition-colors ${
                 selectedTopic.status === "done"
                   ? "bg-status-done-bg border-status-done-border text-status-done-fg"
                   : selectedTopic.status === "partial"
@@ -946,13 +1006,53 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                       ? "bg-status-barely-bg border-status-barely-border text-status-barely-fg"
                       : "bg-subtle border-border text-foreground-subtle"
               }`}
+              title="Change status"
+              aria-expanded={isStatusDropdownOpen}
+              aria-haspopup="listbox"
             >
-              <option value="untouched">Untouched</option>
-              <option value="barely">Barely</option>
-              <option value="partial">Partially</option>
-              <option value="done">Done</option>
-            </select>
-            <ChevronDown className="w-3 h-3 absolute right-1.5 pointer-events-none opacity-60 text-current shrink-0" />
+              <span>
+                {selectedTopic.status === "done"
+                  ? "Done"
+                  : selectedTopic.status === "partial"
+                    ? "Partially"
+                    : selectedTopic.status === "barely"
+                      ? "Barely"
+                      : "Untouched"}
+              </span>
+              <ChevronDown
+                className={`w-3 h-3 opacity-60 text-current shrink-0 transition-transform duration-150 ${
+                  isStatusDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {isStatusDropdownOpen && (
+              <div
+                role="listbox"
+                aria-label="Topic status"
+                className="absolute left-0 top-full mt-1.5 w-36 bg-card rounded-xl border border-border py-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+              >
+                {STATUS_OPTIONS.map((opt) => {
+                  const isSelected = selectedTopic.status === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        onUpdateStatus(selectedTopic.id, opt.value);
+                        setIsStatusDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-1.5 text-left flex items-center justify-between cursor-pointer transition-colors ${opt.className}`}
+                    >
+                      <span>{opt.label}</span>
+                      {isSelected && <Check className="w-3 h-3 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
