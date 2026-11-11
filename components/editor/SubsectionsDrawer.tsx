@@ -16,6 +16,7 @@ import { Plus, Trash2, Pencil } from "lucide-react";
 import {
   CustomUnderline,
   CustomHighlight,
+  CustomFontSize,
   getEditorMarkdown,
 } from "./extensions";
 import { EditorToolbar } from "./EditorToolbar";
@@ -143,6 +144,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
         },
       }),
       CustomUnderline,
+      CustomFontSize,
       TaskList,
       TaskItem.configure({
         nested: true,

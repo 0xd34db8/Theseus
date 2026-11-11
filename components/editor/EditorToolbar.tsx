@@ -60,6 +60,120 @@ export function EditorToolbar({
     ? "w-px h-3.5 bg-border mx-0.5 shrink-0"
     : "w-px h-4 bg-border mx-1 shrink-0";
 
+  // Item / Font Size calculation
+  const isImageActive = editor.isActive("image");
+  const currentImageAttrs = isImageActive
+    ? editor.getAttributes("image")
+    : null;
+
+  let currentImagePreset = "auto";
+  if (isImageActive && currentImageAttrs?.width) {
+    const parentEl =
+      editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
+    const maxW = parentEl?.clientWidth || 700;
+    const numericWidth =
+      typeof currentImageAttrs.width === "number"
+        ? currentImageAttrs.width
+        : parseInt(String(currentImageAttrs.width), 10);
+    if (!isNaN(numericWidth)) {
+      const ratio = numericWidth / maxW;
+      if (ratio <= 0.35) currentImagePreset = "25%";
+      else if (ratio <= 0.6) currentImagePreset = "50%";
+      else if (ratio <= 0.85) currentImagePreset = "75%";
+      else currentImagePreset = "100%";
+    }
+  }
+
+  const currentFontSize =
+    editor.getAttributes("fontSize")?.size || "default";
+  const currentSizeValue = isImageActive
+    ? currentImagePreset
+    : currentFontSize;
+
+  const handleSizeChange = (val: string) => {
+    const { from, to } = editor.state.selection;
+    let hasImageInSelection = false;
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      if (node.type.name === "image") {
+        hasImageInSelection = true;
+      }
+    });
+
+    if (isImageActive || hasImageInSelection) {
+      const parentEl =
+        editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
+      const maxW = parentEl?.clientWidth || 700;
+
+      let targetWidth: number | null = null;
+      if (val === "25%" || val === "12px") {
+        targetWidth = Math.round(maxW * 0.25);
+      } else if (val === "35%" || val === "14px") {
+        targetWidth = Math.round(maxW * 0.35);
+      } else if (val === "50%" || val === "16px") {
+        targetWidth = Math.round(maxW * 0.5);
+      } else if (val === "60%" || val === "18px") {
+        targetWidth = Math.round(maxW * 0.6);
+      } else if (val === "70%" || val === "20px") {
+        targetWidth = Math.round(maxW * 0.7);
+      } else if (val === "75%" || val === "24px") {
+        targetWidth = Math.round(maxW * 0.75);
+      } else if (val === "90%" || val === "32px") {
+        targetWidth = Math.round(maxW * 0.9);
+      } else if (val === "100%" || val === "48px") {
+        targetWidth = Math.round(maxW * 1.0);
+      } else if (val === "auto" || val === "default") {
+        targetWidth = null;
+      } else {
+        const parsed = parseInt(val, 10);
+        if (!isNaN(parsed)) {
+          targetWidth = val.endsWith("%")
+            ? Math.round(maxW * (parsed / 100))
+            : parsed;
+        }
+      }
+
+      if (isImageActive) {
+        editor
+          .chain()
+          .focus()
+          .updateAttributes("image", { width: targetWidth })
+          .run();
+      }
+
+      if (hasImageInSelection && !isImageActive) {
+        editor.state.doc.nodesBetween(from, to, (node, pos) => {
+          if (node.type.name === "image") {
+            editor.commands.command(({ tr }) => {
+              tr.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                width: targetWidth,
+              });
+              return true;
+            });
+          }
+        });
+      }
+    }
+
+    if (!isImageActive) {
+      if (val === "default" || val === "auto") {
+        (editor.chain().focus() as any).unsetFontSize().run();
+      } else {
+        const fontSizeToApply =
+          val === "25%"
+            ? "12px"
+            : val === "50%"
+              ? "16px"
+              : val === "75%"
+                ? "24px"
+                : val === "100%"
+                  ? "48px"
+                  : val;
+        (editor.chain().focus() as any).setFontSize(fontSizeToApply).run();
+      }
+    }
+  };
+
   return (
     <div
       className={`w-full flex items-center gap-1 bg-subtle text-foreground-subtle overflow-x-auto no-scrollbar flex-nowrap sm:flex-wrap ${
@@ -138,6 +252,38 @@ export function EditorToolbar({
         <option value="4">Heading 4</option>
         <option value="5">Heading 5</option>
         <option value="6">Heading 6</option>
+      </select>
+
+      {/* Font Size & Item Size Selector */}
+      <select
+        value={currentSizeValue}
+        onChange={(e) => handleSizeChange(e.target.value)}
+        className={`bg-card border border-border rounded text-foreground outline-hidden cursor-pointer font-medium hover:border-border ${
+          compact ? "text-[11px] px-1.5 py-0.5" : "text-xs px-2 py-1 rounded-md"
+        }`}
+        title={isImageActive ? "Image size" : "Font size"}
+      >
+        {isImageActive ? (
+          <>
+            <option value="auto">Image: Auto</option>
+            <option value="25%">Image: 25% (Small)</option>
+            <option value="50%">Image: 50% (Medium)</option>
+            <option value="75%">Image: 75% (Large)</option>
+            <option value="100%">Image: 100% (Full)</option>
+          </>
+        ) : (
+          <>
+            <option value="default">Font size</option>
+            <option value="12px">12px</option>
+            <option value="14px">14px</option>
+            <option value="16px">16px (Normal)</option>
+            <option value="18px">18px</option>
+            <option value="20px">20px</option>
+            <option value="24px">24px (Large)</option>
+            <option value="32px">32px (XL)</option>
+            <option value="48px">48px (Huge)</option>
+          </>
+        )}
       </select>
 
       <div className={dividerClass} />

@@ -38,6 +38,7 @@ import {
   CustomImage,
   CustomUnderline,
   CustomHighlight,
+  CustomFontSize,
   CustomShortcuts,
   CustomTaskList,
   CustomTaskItem,
@@ -262,6 +263,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       FootnoteReference,
       FootnoteDefinition,
       CustomUnderline,
+      CustomFontSize,
       CustomTaskList,
       CustomTaskItem.configure({
         nested: true,
