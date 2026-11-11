@@ -97,15 +97,15 @@ export function getSavedSyllabi(includeDrafts: boolean = false): SyllabusData[] 
     }
     const parsed: SyllabusData[] = JSON.parse(raw);
 
-    // Deduplicate any exact duplicate syllabus entries (e.g. from rapid multi-paste triggers)
+    // Deduplicate any duplicate syllabus entries by ID
     const seen = new Set<string>();
     const deduplicated: SyllabusData[] = [];
     for (const s of parsed) {
-      const firstTopic = s.items?.[0]?.title || "";
-      const fingerprint = `${s.items?.length || 0}::${firstTopic}`;
-      if (!seen.has(fingerprint)) {
-        seen.add(fingerprint);
+      if (!s || !s.id) continue;
+      if (!seen.has(s.id)) {
+        seen.add(s.id);
         // Automatically fix "Imported Syllabus" if a real topic title is available
+        const firstTopic = s.items?.[0]?.title || "";
         if (
           (s.fileName === "Imported Syllabus" || !s.fileName) &&
           s.items &&
@@ -162,38 +162,29 @@ export function cleanupUnusedDrafts(): void {
   } catch {}
 }
 
-export function saveSyllabus(syllabus: SyllabusData) {
-  if (typeof window === "undefined") return;
+export function saveSyllabus(syllabus: SyllabusData): string {
+  if (typeof window === "undefined") return syllabus.id;
   const list = getSavedSyllabi(true);
 
-  const firstTopic = syllabus.items?.[0]?.title || "";
-  const existingIdx = list.findIndex(
-    (s) =>
-      s.id === syllabus.id ||
-      (firstTopic &&
-        s.items?.[0]?.title === firstTopic &&
-        s.items?.length === syllabus.items?.length),
-  );
+  const existingIdx = list.findIndex((s) => s.id === syllabus.id);
 
   let updatedList: SyllabusData[];
+  const targetId = existingIdx >= 0 ? list[existingIdx].id : syllabus.id;
+  const updatedItem: SyllabusData = {
+    ...syllabus,
+    id: targetId,
+    lastModified: "Just now",
+  };
+
   if (existingIdx >= 0) {
-    updatedList = [...list];
-    updatedList[existingIdx] = {
-      ...syllabus,
-      id: list[existingIdx].id,
-      lastModified: "Just now",
-    };
+    const remaining = list.filter((_, idx) => idx !== existingIdx);
+    updatedList = [updatedItem, ...remaining];
   } else {
-    updatedList = [
-      {
-        ...syllabus,
-        lastModified: "Just now",
-      },
-      ...list,
-    ];
+    updatedList = [updatedItem, ...list];
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
-  localStorage.setItem(ACTIVE_ID_KEY, syllabus.id);
+  localStorage.setItem(ACTIVE_ID_KEY, targetId);
+  return targetId;
 }
 
 export function getActiveSyllabusId(): string | null {

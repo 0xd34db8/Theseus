@@ -115,7 +115,7 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 ### Dual-Mode Live JSON Tree Editor
 
 <p align="center">
-  <img src="showcase/JSON_Editor.png" alt="Dual-Mode Live JSON Tree Editor" />
+  <img src="showcase/JSON_Editor.png" alt="Dual-Mode Live JSON Tree Editor" width="320" />
 </p>
 
 - **Seamless Toggle**: Switch between the visual tree and raw JSON via the `{ }` (Braces) button in the tree header (`Ctrl+Enter` or `Esc` to parse and toggle back).
