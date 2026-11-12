@@ -18,6 +18,7 @@
 
 <p align="center">
   <a href="#overview">Overview</a> •
+  <a href="#demo">Demo</a> •
   <a href="#core-workflow-philosophy">Core Workflow</a> •
   <a href="#key-features">Key Features</a> •
   <a href="#progress-tracking">Progress Tracking</a> •
@@ -59,7 +60,23 @@ Theseus organizes curriculum documents into interactive, hierarchical study work
 
 ---
 
+## Demo
+
+<p align="center">
+  <video src="showcase/DEMO.mp4" controls="controls" width="100%" style="max-width: 100%;">
+    Your browser does not support the video tag.
+  </video>
+  <br />
+  <a href="showcase/DEMO.mp4">Watch demo video (showcase/DEMO.mp4)</a>
+</p>
+
+---
+
 ## <a id="core-workflow-philosophy"></a>Core Workflow & Philosophy
+
+<p align="center">
+  <img src="showcase/Conversion.png" alt="Transforming Raw Unstructured Syllabus into Structured Study Workspace" />
+</p>
 
 The foundational design of Theseus centers on a unified study workflow: **bringing the syllabus outline and note-taking into one cohesive workspace for organized, concise, at-a-glance information intake and retrieval**.
 
@@ -386,7 +403,7 @@ Theseus/
 │   ├── syllabusUtils.ts         # Tree traversal, stats calculation, and .theseus export
 │   └── theme.ts                 # Theme bootstrap script and storage observer
 ├── public/                      # Static branding assets and icons
-├── showcase/                    # Visual showcase screenshots and UI previews
+├── showcase/                    # Visual showcase screenshots, demo video, and UI previews
 └── types/
     ├── ai.ts                    # Universal LLM interfaces and provider types
     ├── mammoth.d.ts             # Type definitions for Word document parser
