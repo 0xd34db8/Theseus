@@ -63,11 +63,9 @@ Theseus organizes curriculum documents into interactive, hierarchical study work
 ## Demo
 
 <p align="center">
-  <video src="showcase/DEMO.mp4" controls="controls" width="100%" style="max-width: 100%;">
-    Your browser does not support the video tag.
-  </video>
+  <img src="showcase/DEMO.gif" alt="Theseus Demo" />
   <br />
-  <a href="showcase/DEMO.gif">Watch demo video (showcase/DEMO.mp4)</a>
+  <a href="showcase/DEMO.mp4">Watch in HD (showcase/DEMO.mp4)</a>
 </p>
 
 ---
