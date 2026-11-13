@@ -67,7 +67,7 @@ Theseus organizes curriculum documents into interactive, hierarchical study work
     Your browser does not support the video tag.
   </video>
   <br />
-  <a href="showcase/DEMO.mp4">Watch demo video (showcase/DEMO.mp4)</a>
+  <a href="showcase/DEMO.gif">Watch demo video (showcase/DEMO.mp4)</a>
 </p>
 
 ---
