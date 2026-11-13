@@ -8,7 +8,6 @@ import { StatusChip } from "@/components/editor/StatusChip";
 import { SubsectionsDrawer } from "@/components/editor/SubsectionsDrawer";
 import { ApiKeyModal } from "@/components/modals/ApiKeyModal";
 import { ListTree, ChevronUp, RotateCcw } from "lucide-react";
-import { initialSyllabusData } from "@/lib/mockData";
 import {
   getSavedSyllabi,
   saveSyllabus,
@@ -17,6 +16,8 @@ import {
   cleanupUnusedDrafts,
 } from "@/lib/storage";
 import {
+  initialSyllabusData,
+  buildTopicNote,
   findItemById,
   findParentItem,
   updateItemInTree,
@@ -24,6 +25,8 @@ import {
   addItemToTree,
   exportSyllabusAsFile,
 } from "@/lib/syllabusUtils";
+import { useTreeHistory } from "@/hooks/useTreeHistory";
+import { useResizablePane } from "@/hooks/useResizablePane";
 import {
   SyllabusData,
   SyllabusItem,
@@ -52,116 +55,40 @@ export default function EditPage() {
   const [activePanel, setActivePanel] = useState<"tree" | "editor">("tree");
   const [isSubsectionsOpen, setIsSubsectionsOpen] = useState<boolean>(false);
 
-  // Split pane resizing state
-  const [treeWidth, setTreeWidth] = useState<number | null>(null);
-  const [isResizing, setIsResizing] = useState<boolean>(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const treePaneRef = useRef<HTMLDivElement | null>(null);
-  const treeWidthRef = useRef<number | null>(null);
+  const {
+    treeWidth,
+    isResizing,
+    containerRef,
+    treePaneRef,
+    handleResizeStart,
+    handleResetWidth,
+    nudgeWidth,
+  } = useResizablePane();
 
-  // Structural tree snapshot (preserves latest notes across tree undo/redo)
-  interface TreeSnapshotNode {
-    id: string;
-    title: string;
-    status: TopicStatus;
-    isExpanded?: boolean;
-    hasNote?: boolean;
-    note?: TopicNote;
-    children?: TreeSnapshotNode[];
-  }
-
-  const [historyPast, setHistoryPast] = useState<TreeSnapshotNode[][]>([]);
-  const [historyFuture, setHistoryFuture] = useState<TreeSnapshotNode[][]>([]);
-
-  const extractTreeSnapshot = (items: SyllabusItem[]): TreeSnapshotNode[] => {
-    return items.map((it) => ({
-      id: it.id,
-      title: it.title,
-      status: it.status,
-      isExpanded: it.isExpanded,
-      hasNote: it.hasNote,
-      note: it.note,
-      children: it.children ? extractTreeSnapshot(it.children) : undefined,
-    }));
-  };
-
-  const restoreTreeFromSnapshot = (
-    snapshot: TreeSnapshotNode[],
-    currentItems: SyllabusItem[],
-  ): SyllabusItem[] => {
-    // Preserve all existing notes currently in the syllabus
-    const notesMap = new Map<string, { note?: TopicNote; hasNote: boolean }>();
-    function collect(items: SyllabusItem[]) {
-      for (const it of items) {
-        if (it.note || it.hasNote) {
-          notesMap.set(it.id, { note: it.note, hasNote: it.hasNote });
-        }
-        if (it.children) collect(it.children);
-      }
-    }
-    collect(currentItems);
-
-    function apply(nodes: TreeSnapshotNode[]): SyllabusItem[] {
-      return nodes.map((n) => {
-        // If the topic currently exists in currentItems, keep its current latest note.
-        // This guarantees tree undo/redo never reverts or resets note editor edits.
-        // If the topic was deleted and is being restored by undo, use the saved note from snapshot.
-        const currentSaved = notesMap.get(n.id);
-        const hasNote = currentSaved !== undefined ? currentSaved.hasNote : Boolean(n.hasNote);
-        const note = currentSaved !== undefined ? currentSaved.note : n.note;
-
-        return {
-          id: n.id,
-          title: n.title,
-          status: n.status,
-          isExpanded: n.isExpanded ?? true,
-          hasNote,
-          note,
-          children: n.children ? apply(n.children) : undefined,
-        };
-      });
-    }
-
-    return apply(snapshot);
-  };
-
-  const pushTreeHistory = (currentItems: SyllabusItem[]) => {
-    const snapshot = extractTreeSnapshot(currentItems);
-    setHistoryPast((prev) => [snapshot, ...prev.slice(0, 49)]);
-    setHistoryFuture([]);
-  };
-
-  const handleTreeUndo = () => {
-    if (historyPast.length === 0) return;
-    const [prevSnapshot, ...remainingPast] = historyPast;
-    const currentSnapshot = extractTreeSnapshot(syllabus.items);
-    setHistoryFuture((prev) => [currentSnapshot, ...prev]);
-    setHistoryPast(remainingPast);
-
-    const restoredItems = restoreTreeFromSnapshot(prevSnapshot, syllabus.items);
+  const applyRestoredItems = useCallback((restoredItems: SyllabusItem[]) => {
     setSyllabus((prev) => {
       const updated = { ...prev, isDraft: false, items: restoredItems };
       syllabusRef.current = updated;
       saveSyllabus(updated);
       return updated;
     });
-  };
+  }, []);
 
-  const handleTreeRedo = () => {
-    if (historyFuture.length === 0) return;
-    const [nextSnapshot, ...remainingFuture] = historyFuture;
-    const currentSnapshot = extractTreeSnapshot(syllabus.items);
-    setHistoryPast((prev) => [currentSnapshot, ...prev]);
-    setHistoryFuture(remainingFuture);
+  const {
+    canUndo,
+    canRedo,
+    pushTreeHistory,
+    undo: undoTree,
+    redo: redoTree,
+  } = useTreeHistory(applyRestoredItems);
 
-    const restoredItems = restoreTreeFromSnapshot(nextSnapshot, syllabus.items);
-    setSyllabus((prev) => {
-      const updated = { ...prev, isDraft: false, items: restoredItems };
-      syllabusRef.current = updated;
-      saveSyllabus(updated);
-      return updated;
-    });
-  };
+  const handleTreeUndo = useCallback(() => {
+    undoTree(syllabusRef.current.items);
+  }, [undoTree]);
+
+  const handleTreeRedo = useCallback(() => {
+    redoTree(syllabusRef.current.items);
+  }, [redoTree]);
 
   // Keyboard shortcut listener: strictly respects whichever panel is clicked/active
   useEffect(() => {
@@ -188,22 +115,14 @@ export default function EditPage() {
             ? "editor"
             : activePanel;
 
-        if (targetPanel === "tree") {
-          const treeInput = document.querySelector<HTMLInputElement>(
-            '[data-tree-search-input="true"]',
-          );
-          if (treeInput) {
-            treeInput.focus();
-            treeInput.select();
-          }
-        } else {
-          const editorInput = document.querySelector<HTMLInputElement>(
-            '[data-editor-search-input="true"]',
-          );
-          if (editorInput) {
-            editorInput.focus();
-            editorInput.select();
-          }
+        const selector =
+          targetPanel === "tree"
+            ? '[data-tree-search-input="true"]'
+            : '[data-editor-search-input="true"]';
+        const input = document.querySelector<HTMLInputElement>(selector);
+        if (input) {
+          input.focus();
+          input.select();
         }
         return;
       }
@@ -225,7 +144,7 @@ export default function EditPage() {
             (target.tagName === "INPUT" && !target.closest("[data-tree-pane]"))),
       );
 
-      // If clicked/focused on editor, DO NOT TOUCH TREE! Let editor handle its own undo/redo natively.
+      // If clicked/focused on editor, let editor handle its own undo/redo natively.
       if (activePanel === "editor" || isInsideEditor) {
         return;
       }
@@ -251,7 +170,7 @@ export default function EditPage() {
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [historyPast, historyFuture, activePanel, syllabus.items]);
+  }, [activePanel, handleTreeUndo, handleTreeRedo]);
 
   // Load active syllabus and api key on client
   useEffect(() => {
@@ -314,7 +233,7 @@ export default function EditPage() {
     };
   }, [syllabus.fileName]);
 
-  // Ctrl + S (or Cmd + S) prompts to save / export as .theseus, not .html
+  // Export as .theseus on Ctrl+S / Cmd+S
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
@@ -327,99 +246,6 @@ export default function EditPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Load saved tree pane width from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("theseus_tree_width");
-      if (saved) {
-        const parsed = Number(saved);
-        if (!isNaN(parsed) && parsed >= 260 && parsed <= 900) {
-          setTreeWidth(parsed);
-          treeWidthRef.current = parsed;
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  };
-
-  const handleResetWidth = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setTreeWidth(null);
-    treeWidthRef.current = null;
-    try {
-      localStorage.removeItem("theseus_tree_width");
-    } catch {
-      // ignore
-    }
-  };
-
-  // Dragging event listeners for split pane resizer
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      if (!treePaneRef.current || !containerRef.current) return;
-      const treeLeft = treePaneRef.current.getBoundingClientRect().left;
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const rawWidth = e.clientX - treeLeft;
-      const minWidth = 260;
-      const maxWidth = Math.max(minWidth, Math.min(800, containerRect.width - 380));
-      const clamped = Math.round(Math.min(Math.max(rawWidth, minWidth), maxWidth));
-      setTreeWidth(clamped);
-      treeWidthRef.current = clamped;
-    };
-
-    const onMouseUp = () => {
-      setIsResizing(false);
-      if (treeWidthRef.current !== null) {
-        try {
-          localStorage.setItem("theseus_tree_width", String(treeWidthRef.current));
-        } catch {
-          // ignore
-        }
-      }
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-  }, [isResizing]);
-
-  // Clamp tree width if window is resized smaller
-  useEffect(() => {
-    const handleWindowResize = () => {
-      if (!containerRef.current) return;
-      const containerWidth = containerRef.current.getBoundingClientRect().width;
-      const maxAllowed = Math.max(260, Math.min(800, containerWidth - 380));
-      setTreeWidth((prev) => {
-        if (prev !== null && prev > maxAllowed) {
-          try {
-            localStorage.setItem("theseus_tree_width", String(maxAllowed));
-          } catch {}
-          return maxAllowed;
-        }
-        return prev;
-      });
-    };
-
-    window.addEventListener("resize", handleWindowResize);
-    return () => window.removeEventListener("resize", handleWindowResize);
   }, []);
 
   const selectedTopic = findItemById(syllabus.items, selectedTopicId);
@@ -496,15 +322,9 @@ export default function EditPage() {
             ...item,
             hasNote,
             note: hasNote
-              ? {
-                  id: `note-${item.id}`,
-                  title: item.title,
+              ? buildTopicNote(item, {
                   content: `### ${item.title}\n\nStart writing notes here...`,
-                  updatedAt: new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                }
+                })
               : undefined,
           };
         }),
@@ -668,8 +488,8 @@ export default function EditPage() {
             onRenameTopic={handleRenameTopic}
             onToggleNote={handleToggleNote}
             onUpdateItems={handleUpdateItems}
-            canUndo={historyPast.length > 0}
-            canRedo={historyFuture.length > 0}
+            canUndo={canUndo}
+            canRedo={canRedo}
             onUndo={handleTreeUndo}
             onRedo={handleTreeRedo}
           />
@@ -686,33 +506,10 @@ export default function EditPage() {
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") {
               e.preventDefault();
-              setTreeWidth((prev) => {
-                const current = prev ?? 380;
-                const next = Math.max(260, current - 20);
-                try {
-                  localStorage.setItem("theseus_tree_width", String(next));
-                } catch {}
-                return next;
-              });
+              nudgeWidth(-20);
             } else if (e.key === "ArrowRight") {
               e.preventDefault();
-              setTreeWidth((prev) => {
-                const current = prev ?? 380;
-                const maxWidth = containerRef.current
-                  ? Math.max(
-                      260,
-                      Math.min(
-                        800,
-                        containerRef.current.getBoundingClientRect().width - 380,
-                      ),
-                    )
-                  : 800;
-                const next = Math.min(maxWidth, current + 20);
-                try {
-                  localStorage.setItem("theseus_tree_width", String(next));
-                } catch {}
-                return next;
-              });
+              nudgeWidth(20);
             } else if (
               e.key === "Enter" ||
               e.key === " " ||
@@ -806,8 +603,6 @@ export default function EditPage() {
           <SubsectionsDrawer
             selectedTopic={selectedTopic}
             onSaveNote={handleSaveNote}
-            apiKey={apiKey}
-            onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
             onClose={() => setIsSubsectionsOpen(false)}
           />
         )}

@@ -106,6 +106,13 @@ export default function HomePage() {
     setApiKey(getApiKey());
   }, []);
 
+  const openSyllabusInEditor = (syllabusData: SyllabusData) => {
+    setIsOpeningSyllabus(true);
+    const activeId = saveSyllabus(syllabusData);
+    setActiveSyllabusId(activeId);
+    router.push("/edit");
+  };
+
   // Process pasted text: parses syllabus JSON, saves it, and opens the editor
   const processPastedText = (text: string): boolean => {
     if (!text || typeof text !== "string" || isProcessingPasteRef.current)
@@ -113,10 +120,7 @@ export default function HomePage() {
     const syllabusData = tryParseSyllabusJson(text);
     if (syllabusData) {
       isProcessingPasteRef.current = true;
-      setIsOpeningSyllabus(true);
-      const activeId = saveSyllabus(syllabusData);
-      setActiveSyllabusId(activeId);
-      router.push("/edit");
+      openSyllabusInEditor(syllabusData);
       return true;
     }
 
@@ -263,16 +267,12 @@ export default function HomePage() {
         const text = await file.text();
         const parsedSyllabus = tryParseSyllabusJson(text, cleanName);
         if (parsedSyllabus) {
-          setIsOpeningSyllabus(true);
-          const activeId = saveSyllabus(parsedSyllabus);
-          setActiveSyllabusId(activeId);
-          router.push("/edit");
-          return;
-        } else {
-          showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
-          setUploadedFile(null);
+          openSyllabusInEditor(parsedSyllabus);
           return;
         }
+        showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
+        setUploadedFile(null);
+        return;
       } catch {
         showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
         setUploadedFile(null);
@@ -292,10 +292,7 @@ export default function HomePage() {
     if (activeTab === "text" && rawText.trim()) {
       const directJson = tryParseSyllabusJson(rawText.trim(), title);
       if (directJson) {
-        setIsOpeningSyllabus(true);
-        const activeId = saveSyllabus(directJson);
-        setActiveSyllabusId(activeId);
-        router.push("/edit");
+        openSyllabusInEditor(directJson);
         return;
       }
 
@@ -303,7 +300,8 @@ export default function HomePage() {
       if (attempted === "theseus") {
         showToast("Invalid .theseus File");
         return;
-      } else if (attempted === "json") {
+      }
+      if (attempted === "json") {
         showToast("Invalid JSON");
         return;
       }
@@ -321,48 +319,10 @@ export default function HomePage() {
     );
 
     try {
-      let resultSyllabus: SyllabusData;
+      let resultSyllabus: SyllabusData | null = null;
 
-      if (!useAi) {
-        // Offline mode: does not require a file/text to be provided first
-        if (activeTab === "file" && uploadedFile) {
-          const isTheseus = uploadedFile.name.toLowerCase().endsWith(".theseus");
-          const isJson = uploadedFile.name.toLowerCase().endsWith(".json");
-
-          setStatusMessage("Reading file contents...");
-          const processed = await processSyllabusFile(uploadedFile);
-          if (processed.isJsonOrTheseus && processed.jsonData) {
-            resultSyllabus = {
-              ...processed.jsonData,
-              fileName: title,
-              lastModified: "Just now",
-            };
-          } else if (isTheseus || isJson) {
-            showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
-            setIsFormatting(false);
-            return;
-          } else if (processed.text) {
-            resultSyllabus = parseRawTextToSyllabus(processed.text, title);
-          } else {
-            resultSyllabus = createStarterSyllabus(title);
-            resultSyllabus.isDraft = true;
-          }
-        } else if (activeTab === "text" && rawText.trim()) {
-          resultSyllabus = parseRawTextToSyllabus(rawText.trim(), title);
-        } else {
-          // No file or text provided: seamlessly create a blank syllabus marked as draft
-          resultSyllabus = createStarterSyllabus(title);
-          resultSyllabus.isDraft = true;
-        }
-      } else {
-        // AI Formatting mode: requires input to format
-        if (activeTab === "file") {
-          if (!uploadedFile) {
-            throw new Error(
-              "Please select or drop a syllabus file first to format with AI.",
-            );
-          }
-
+      if (activeTab === "file") {
+        if (uploadedFile) {
           const isTheseus = uploadedFile.name.toLowerCase().endsWith(".theseus");
           const isJson = uploadedFile.name.toLowerCase().endsWith(".json");
 
@@ -377,60 +337,69 @@ export default function HomePage() {
             };
           } else if (isTheseus || isJson) {
             showToast(isTheseus ? "Invalid .theseus File" : "Invalid JSON");
-            setIsFormatting(false);
             return;
-          } else {
+          } else if (!useAi) {
+            resultSyllabus = processed.text
+              ? parseRawTextToSyllabus(processed.text, title)
+              : createStarterSyllabus(title);
+          } else if (processed.pdfBase64) {
             setStatusMessage("AI is structuring syllabus tree...");
-            if (processed.pdfBase64) {
-              resultSyllabus = await formatSyllabusWithAI(
-                {
-                  fileData: {
-                    base64: processed.pdfBase64,
-                    mimeType: "application/pdf",
-                  },
-                  preferredTitle: title,
-                  coreOnly: coreSyllabusOnly,
-                  nonVerbatim,
+            resultSyllabus = await formatSyllabusWithAI(
+              {
+                fileData: {
+                  base64: processed.pdfBase64,
+                  mimeType: "application/pdf",
                 },
-                getAIConfig(),
-              );
-            } else if (processed.text) {
-              resultSyllabus = await formatSyllabusWithAI(
-                {
-                  text: processed.text,
-                  preferredTitle: title,
-                  coreOnly: coreSyllabusOnly,
-                  nonVerbatim,
-                },
-                getAIConfig(),
-              );
-            } else {
-              throw new Error("Could not extract readable content from file.");
-            }
+                preferredTitle: title,
+                coreOnly: coreSyllabusOnly,
+                nonVerbatim,
+              },
+              getAIConfig(),
+            );
+          } else if (processed.text) {
+            setStatusMessage("AI is structuring syllabus tree...");
+            resultSyllabus = await formatSyllabusWithAI(
+              {
+                text: processed.text,
+                preferredTitle: title,
+                coreOnly: coreSyllabusOnly,
+                nonVerbatim,
+              },
+              getAIConfig(),
+            );
+          } else {
+            throw new Error("Could not extract readable content from file.");
           }
+        } else if (!useAi) {
+          resultSyllabus = createStarterSyllabus(title);
         } else {
-          // Tab: Paste Text
-          if (!rawText.trim()) {
-            throw new Error("Please paste syllabus text to format with AI.");
-          }
-
-          setStatusMessage("AI is structuring syllabus topics...");
-          resultSyllabus = await formatSyllabusWithAI(
-            {
-              text: rawText.trim(),
-              preferredTitle: title,
-              coreOnly: coreSyllabusOnly,
-              nonVerbatim,
-            },
-            getAIConfig(),
+          throw new Error(
+            "Please select or drop a syllabus file first to format with AI.",
           );
         }
+      } else if (!useAi) {
+        resultSyllabus = rawText.trim()
+          ? parseRawTextToSyllabus(rawText.trim(), title)
+          : createStarterSyllabus(title);
+      } else {
+        if (!rawText.trim()) {
+          throw new Error("Please paste syllabus text to format with AI.");
+        }
+        setStatusMessage("AI is structuring syllabus topics...");
+        resultSyllabus = await formatSyllabusWithAI(
+          {
+            text: rawText.trim(),
+            preferredTitle: title,
+            coreOnly: coreSyllabusOnly,
+            nonVerbatim,
+          },
+          getAIConfig(),
+        );
       }
 
-      // Save and navigate to editor
-      saveSyllabus(resultSyllabus);
-      setActiveSyllabusId(resultSyllabus.id);
-      router.push("/edit");
+      if (resultSyllabus) {
+        openSyllabusInEditor(resultSyllabus);
+      }
     } catch (err: any) {
       setErrorMessage(
         err.message || "An unexpected error occurred while parsing syllabus.",

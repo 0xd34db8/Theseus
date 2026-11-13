@@ -2,7 +2,10 @@
 
 import React from "react";
 import { SyllabusItem, TopicStatus } from "@/types/syllabus";
+import { TOPIC_STATUS_META } from "@/lib/syllabusUtils";
 import { Check, FileText, Plus, Pencil, Trash2 } from "lucide-react";
+
+const MENU_STATUS_ORDER: TopicStatus[] = ["done", "partial", "barely", "untouched"];
 
 export interface TreeContextMenuProps {
   item: SyllabusItem;
@@ -45,53 +48,23 @@ export function TreeContextMenu({
         e.stopPropagation();
       }}
     >
-      <button
-        type="button"
-        onClick={() => {
-          onUpdateStatus(item.id, "done");
-          onClose();
-        }}
-        className="w-full px-3 py-1 text-left flex items-center justify-between hover:bg-status-done-bg text-status-done-fg font-medium cursor-pointer"
-      >
-        <span>Done</span>
-        {item.status === "done" && <Check className="w-3 h-3" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          onUpdateStatus(item.id, "partial");
-          onClose();
-        }}
-        className="w-full px-3 py-1 text-left flex items-center justify-between hover:bg-status-partial-bg text-status-partial-fg font-medium cursor-pointer"
-      >
-        <span>Partially</span>
-        {item.status === "partial" && <Check className="w-3 h-3" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          onUpdateStatus(item.id, "barely");
-          onClose();
-        }}
-        className="w-full px-3 py-1 text-left flex items-center justify-between hover:bg-status-barely-bg text-status-barely-fg font-medium cursor-pointer"
-      >
-        <span>Barely</span>
-        {item.status === "barely" && <Check className="w-3 h-3" />}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          onUpdateStatus(item.id, "untouched");
-          onClose();
-        }}
-        className="w-full px-3 py-1 text-left flex items-center justify-between hover:bg-subtle text-foreground-subtle cursor-pointer"
-      >
-        <span>Untouched</span>
-        {item.status === "untouched" && <Check className="w-3 h-3" />}
-      </button>
+      {MENU_STATUS_ORDER.map((statusKey) => {
+        const meta = TOPIC_STATUS_META[statusKey];
+        return (
+          <button
+            key={statusKey}
+            type="button"
+            onClick={() => {
+              onUpdateStatus(item.id, statusKey);
+              onClose();
+            }}
+            className={`w-full px-3 py-1 text-left flex items-center justify-between cursor-pointer ${meta.optionClassName}`}
+          >
+            <span>{meta.label}</span>
+            {item.status === statusKey && <Check className="w-3 h-3" />}
+          </button>
+        );
+      })}
 
       <div className="my-1 border-t border-border-subtle" />
 

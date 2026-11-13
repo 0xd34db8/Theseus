@@ -1,24 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  SyllabusItem,
-  TopicNote,
-  NoteComment,
-  TopicStatus,
-} from "@/types/syllabus";
+import { SyllabusItem, TopicNote, TopicStatus } from "@/types/syllabus";
 import { ApiKeyModal } from "@/components/modals/ApiKeyModal";
 import { getApiKey } from "@/lib/storage";
 import { generateNotesWithAI, getNoteGenerationPrompt } from "@/lib/ai";
+import { buildTopicNote } from "@/lib/syllabusUtils";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import TextAlign from "@tiptap/extension-text-align";
-import Link from "@tiptap/extension-link";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Markdown } from "tiptap-markdown";
+import type { EditorView } from "@tiptap/pm/view";
 import {
   Edit3,
-  Plus,
   X,
   ArrowLeft,
   Loader2,
@@ -35,59 +26,27 @@ import {
   Search,
 } from "lucide-react";
 import {
-  CustomImage,
-  CustomUnderline,
-  CustomHighlight,
-  CustomFontSize,
-  CustomShortcuts,
-  CustomTaskList,
-  CustomTaskItem,
-  CustomCodeBlock,
-  FootnoteReference,
-  FootnoteDefinition,
-  Table,
-  TableRow,
-  TableHeader,
-  TableCell,
-  MathNode,
-  Superscript,
-  DefinitionList,
-  DefinitionTerm,
-  DefinitionDescription,
-  MarkdownPlugins,
+  createTipTapExtensions,
   getEditorMarkdown,
-  SearchHighlight,
   SearchHighlightPluginKey,
 } from "./extensions";
 import { EditorToolbar } from "./EditorToolbar";
 import { FloatingTextMenu } from "./FloatingTextMenu";
+import { TopicStatusMenu } from "./TopicStatusMenu";
+import { EmptyNoteView } from "./EmptyNoteView";
 
-const STATUS_OPTIONS: {
-  value: TopicStatus;
-  label: string;
-  className: string;
-}[] = [
-  {
-    value: "untouched",
-    label: "Untouched",
-    className: "hover:bg-subtle text-foreground-subtle",
-  },
-  {
-    value: "barely",
-    label: "Barely",
-    className: "hover:bg-status-barely-bg text-status-barely-fg font-medium",
-  },
-  {
-    value: "partial",
-    label: "Partially",
-    className: "hover:bg-status-partial-bg text-status-partial-fg font-medium",
-  },
-  {
-    value: "done",
-    label: "Done",
-    className: "hover:bg-status-done-bg text-status-done-fg font-medium",
-  },
-];
+function insertImageFile(view: EditorView, file: File) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const src = e.target?.result as string;
+    if (src) {
+      const { schema } = view.state;
+      const node = schema.nodes.image.create({ src });
+      view.dispatch(view.state.tr.replaceSelectionWith(node));
+    }
+  };
+  reader.readAsDataURL(file);
+}
 
 interface NoteEditorProps {
   selectedTopic: SyllabusItem | null;
@@ -127,7 +86,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   onRegisterSearchActions,
   onRegisterFlush,
 }) => {
-  const [content, setContent] = useState<string>("");
   const [hasCopiedNotePrompt, setHasCopiedNotePrompt] =
     useState<boolean>(false);
 
@@ -148,38 +106,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     total: number;
   } | null>(null);
   const fullscreenSearchInputRef = useRef<HTMLInputElement>(null);
-
-  // Status Dropdown State
-  const [isStatusDropdownOpen, setIsStatusDropdownOpen] =
-    useState<boolean>(false);
-  const statusDropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isStatusDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        statusDropdownRef.current &&
-        !statusDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsStatusDropdownOpen(false);
-      }
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsStatusDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isStatusDropdownOpen]);
-
-  useEffect(() => {
-    setIsStatusDropdownOpen(false);
-  }, [selectedTopic?.id]);
 
   // Fullscreen toggle & Escape key listener
   const toggleFullscreen = () => {
@@ -219,18 +145,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     if (!topic || !topic.hasNote || !isDirtyRef.current) return;
 
     isDirtyRef.current = false;
-    const updatedNote: TopicNote = {
-      id: topic.note?.id || `note-${topic.id}`,
-      title: topic.title,
-      content: latestMarkdownRef.current,
-      subComments: topic.note?.subComments,
-      updatedAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    };
-    onSaveNoteRef.current(topic.id, updatedNote);
+    onSaveNoteRef.current(
+      topic.id,
+      buildTopicNote(topic, { content: latestMarkdownRef.current }),
+    );
   }, []);
 
   const flushSaveRef = useRef(flushSave);
@@ -347,92 +265,21 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
       isDirtyRef.current = false;
       const topic = selectedTopicRef.current;
-      const updatedNote: TopicNote = {
-        id: topic.note?.id || `note-${topic.id}`,
-        title: topic.title,
-        content: updatedMarkdown,
-        subComments: topic.note?.subComments,
-        updatedAt: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-      };
-      onSaveNoteRef.current(topic.id, updatedNote);
+      onSaveNoteRef.current(
+        topic.id,
+        buildTopicNote(topic, { content: updatedMarkdown }),
+      );
     }, 350);
   };
 
   // TipTap Rich Live Markdown Editor
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        link: false,
-        underline: false,
-        codeBlock: false,
-        heading: {
-          levels: [1, 2, 3, 4, 5, 6],
-        },
-        bulletList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-        orderedList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-      }),
-      CustomCodeBlock,
-      FootnoteReference,
-      FootnoteDefinition,
-      CustomUnderline,
-      CustomFontSize,
-      CustomTaskList,
-      CustomTaskItem.configure({
-        nested: true,
-      }),
-      Table.configure({
-        resizable: true,
-        HTMLAttributes: {
-          class: "theseus-editor-table",
-        },
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      MathNode,
-      Superscript,
-      DefinitionList,
-      DefinitionTerm,
-      DefinitionDescription,
-      MarkdownPlugins,
-      CustomHighlight.configure({
-        multicolor: false,
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph", "image"],
-      }),
-      CustomImage.configure({
-        inline: false,
-        allowBase64: true,
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-      }),
-      Placeholder.configure({
-        placeholder:
-          "Start writing notes, or use markdown shortcuts (# for heading, - for list, [ ] for todo)...",
-      }),
-      CustomShortcuts,
-      SearchHighlight,
-      Markdown.configure({
-        html: true,
-        tightLists: true,
-        bulletListMarker: "-",
-        transformPastedText: true,
-        transformCopiedText: true,
-      }),
-    ],
+    extensions: createTipTapExtensions({
+      withImages: true,
+      withSearchHighlight: true,
+      placeholder:
+        "Start writing notes, or use markdown shortcuts (# for heading, - for list, [ ] for todo)...",
+    }),
     content: selectedTopic?.note?.content || "",
     immediatelyRender: false,
     editorProps: {
@@ -447,29 +294,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         },
       },
       handlePaste: (view, event) => {
-        // 1. Direct image paste from clipboard via Ctrl+V
         const items = Array.from(event.clipboardData?.items || []);
         const imageItem = items.find((item) => item.type.startsWith("image/"));
         if (imageItem) {
           event.preventDefault();
           const file = imageItem.getAsFile();
           if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const src = e.target?.result as string;
-              if (src) {
-                const { schema } = view.state;
-                const node = schema.nodes.image.create({ src });
-                const transaction = view.state.tr.replaceSelectionWith(node);
-                view.dispatch(transaction);
-              }
-            };
-            reader.readAsDataURL(file);
+            insertImageFile(view, file);
             return true;
           }
         }
 
-        // 2. Notion-style image URL embed detection
+        // Notion-style image URL embed detection
         const pastedText = event.clipboardData?.getData("text/plain")?.trim();
         if (
           pastedText &&
@@ -482,22 +318,12 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
         return false;
       },
-      handleDrop: (view, event, slice, moved) => {
+      handleDrop: (view, event, _slice, moved) => {
         if (!moved && event.dataTransfer?.files?.length) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith("image/")) {
             event.preventDefault();
-            const reader = new FileReader();
-            reader.onload = (e) => {
-              const src = e.target?.result as string;
-              if (src) {
-                const { schema } = view.state;
-                const node = schema.nodes.image.create({ src });
-                const transaction = view.state.tr.replaceSelectionWith(node);
-                view.dispatch(transaction);
-              }
-            };
-            reader.readAsDataURL(file);
+            insertImageFile(view, file);
             return true;
           }
         }
@@ -509,7 +335,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       const markdown = getEditorMarkdown(ed);
       latestMarkdownRef.current = markdown;
       isDirtyRef.current = true;
-      setContent(markdown);
       debounceSave(markdown);
     },
   });
@@ -651,7 +476,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       const noteContent = selectedTopic.note?.content || "";
       if (!isDirtyRef.current) {
         latestMarkdownRef.current = noteContent;
-        setContent(noteContent);
         if (editor) {
           const currentMd = getEditorMarkdown(editor);
           if (currentMd !== noteContent) {
@@ -665,7 +489,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         }
       }
     } else {
-      setContent("");
       latestMarkdownRef.current = "";
       isDirtyRef.current = false;
       if (editor) {
@@ -704,18 +527,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     if (!topic) return;
     latestMarkdownRef.current = updatedContent;
     isDirtyRef.current = false;
-    const updatedNote: TopicNote = {
-      id: topic.note?.id || `note-${topic.id}`,
-      title: topic.title,
-      content: updatedContent,
-      subComments: topic.note?.subComments,
-      updatedAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    };
-    onSaveNoteRef.current(topic.id, updatedNote);
+    onSaveNoteRef.current(
+      topic.id,
+      buildTopicNote(topic, { content: updatedContent }),
+    );
   };
 
   // Copy note prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
@@ -757,7 +572,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         key,
       );
 
-      setContent(generated);
       latestMarkdownRef.current = generated;
       isDirtyRef.current = false;
       if (editor) {
@@ -802,162 +616,40 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   // Handle "no notes yet" state
   if (!selectedTopic.hasNote) {
     return (
-      <div className="h-full flex flex-col items-center justify-between p-4 sm:p-6 md:p-8 font-manrope">
-        <div className="w-full flex justify-between items-center text-xs text-neutral-400">
-          <div className="flex items-center gap-2">
-            {onBackToTree && (
-              <button
-                type="button"
-                onClick={onBackToTree}
-                className="md:hidden flex items-center gap-1 px-2 py-1 text-xs text-foreground-subtle hover:text-foreground rounded-md hover:bg-subtle transition-colors cursor-pointer"
-                title="Back to Topics"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span className="text-[11px] font-medium">Tree</span>
-              </button>
-            )}
-            <span className="font-mono text-[11px] uppercase tracking-wider">
-              {selectedTopic.id}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-subtle rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Centered Topic Title: Click to rename inline */}
-        <div className="text-center my-auto space-y-5 max-w-md w-full">
-          {isEditingTitle ? (
-            <div className="w-full">
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveTitle();
-                  else if (e.key === "Escape") {
-                    setTitleValue(selectedTopic.title);
-                    setIsEditingTitle(false);
-                  }
-                }}
-                onBlur={handleSaveTitle}
-                autoFocus
-                className="text-2xl md:text-3xl font-light text-foreground tracking-tight text-center bg-transparent border-b-2 border-accent focus:outline-hidden px-2 py-0.5 w-full font-manrope"
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setTitleValue(selectedTopic.title);
-                setIsEditingTitle(true);
-              }}
-              className="group inline-flex items-center justify-center gap-2 px-3 py-1 rounded-xl hover:bg-subtle transition-colors cursor-pointer text-center max-w-full"
-              title="Click to rename topic"
-            >
-              <h2 className="text-2xl md:text-3xl font-light text-foreground tracking-tight truncate">
-                {selectedTopic.title}
-              </h2>
-              <Edit3 className="w-4 h-4 text-neutral-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-            </button>
-          )}
-
-          <div className="space-y-4">
-            <p className="text-sm font-light text-muted-foreground italic">
-              no notes yet
-            </p>
-
-            <div className="flex items-center justify-center gap-3">
-              <button
-                onClick={() => {
-                  const newNote: TopicNote = {
-                    id: `note-${selectedTopic.id}`,
-                    title: selectedTopic.title,
-                    content: `### ${selectedTopic.title}\n\nStart writing notes, formulas, or insert diagrams here...`,
-                    updatedAt: new Date().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    }),
-                  };
-                  latestMarkdownRef.current = newNote.content;
-                  isDirtyRef.current = false;
-                  onSaveNote(selectedTopic.id, newNote);
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-primary-foreground rounded-full text-xs font-medium shadow-xs transition-all cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Create Note</span>
-              </button>
-
-              {/* Two-in-one button: Generate with AI + Copy Prompt */}
-              <div className="inline-flex items-center rounded-full bg-linear-to-r from-green-600 to-emerald-600 text-white shadow-xs transition-all overflow-hidden text-xs font-medium">
-                <button
-                  type="button"
-                  onClick={handleAiGenerateNotes}
-                  disabled={isAiGenerating}
-                  className="inline-flex items-center gap-2 pl-4 pr-3 py-2 hover:bg-black/10 transition-colors cursor-pointer disabled:opacity-60"
-                  title="Generate study notes with AI"
-                >
-                  {isAiGenerating ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Generating Notes...</span>
-                    </>
-                  ) : (
-                    <span>Generate with AI</span>
-                  )}
-                </button>
-                <div className="w-px h-4 bg-white/25" />
-                <button
-                  type="button"
-                  onClick={handleCopyNotePrompt}
-                  className="inline-flex items-center justify-center px-3 py-2 hover:bg-black/10 transition-colors cursor-pointer"
-                  title={
-                    hasCopiedNotePrompt
-                      ? "Prompt Copied"
-                      : "Copy note prompt for external LLM"
-                  }
-                >
-                  {hasCopiedNotePrompt ? (
-                    <Check className="w-3.5 h-3.5 text-white" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5 text-white" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {aiError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-500 flex items-start gap-2 text-left">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span>{aiError}</span>
-                  <div>
-                    <button
-                      onClick={() => setIsApiKeyModalOpen(true)}
-                      className="text-xs font-medium text-red-500 underline"
-                    >
-                      Configure API Key
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="w-full" />
-
-        <ApiKeyModal
-          isOpen={isApiKeyModalOpen}
-          onClose={() => setIsApiKeyModalOpen(false)}
-        />
-      </div>
+      <EmptyNoteView
+        topic={selectedTopic}
+        isEditingTitle={isEditingTitle}
+        titleValue={titleValue}
+        titleInputRef={titleInputRef}
+        onTitleChange={setTitleValue}
+        onStartEditTitle={() => {
+          setTitleValue(selectedTopic.title);
+          setIsEditingTitle(true);
+        }}
+        onSaveTitle={handleSaveTitle}
+        onCancelEditTitle={() => {
+          setTitleValue(selectedTopic.title);
+          setIsEditingTitle(false);
+        }}
+        onCreateNote={() => {
+          const newNote = buildTopicNote(selectedTopic, {
+            content: `### ${selectedTopic.title}\n\nStart writing notes, formulas, or insert diagrams here...`,
+          });
+          latestMarkdownRef.current = newNote.content;
+          isDirtyRef.current = false;
+          onSaveNote(selectedTopic.id, newNote);
+        }}
+        onAiGenerateNotes={handleAiGenerateNotes}
+        onCopyNotePrompt={handleCopyNotePrompt}
+        isAiGenerating={isAiGenerating}
+        hasCopiedNotePrompt={hasCopiedNotePrompt}
+        aiError={aiError}
+        isApiKeyModalOpen={isApiKeyModalOpen}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onCloseApiKeyModal={() => setIsApiKeyModalOpen(false)}
+        onClose={onClose}
+        onBackToTree={onBackToTree}
+      />
     );
   }
 
@@ -991,70 +683,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           <span className="hidden sm:inline text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
             Status:
           </span>
-          <div
-            ref={statusDropdownRef}
-            className="relative inline-flex items-center"
-          >
-            <button
-              type="button"
-              onClick={() => setIsStatusDropdownOpen((prev) => !prev)}
-              className={`inline-flex items-center gap-1.5 text-xs font-medium py-1 pl-2.5 pr-2 rounded-full border outline-hidden cursor-pointer transition-colors ${
-                selectedTopic.status === "done"
-                  ? "bg-status-done-bg border-status-done-border text-status-done-fg"
-                  : selectedTopic.status === "partial"
-                    ? "bg-status-partial-bg border-status-partial-border text-status-partial-fg"
-                    : selectedTopic.status === "barely"
-                      ? "bg-status-barely-bg border-status-barely-border text-status-barely-fg"
-                      : "bg-subtle border-border text-foreground-subtle"
-              }`}
-              title="Change status"
-              aria-expanded={isStatusDropdownOpen}
-              aria-haspopup="listbox"
-            >
-              <span>
-                {selectedTopic.status === "done"
-                  ? "Done"
-                  : selectedTopic.status === "partial"
-                    ? "Partially"
-                    : selectedTopic.status === "barely"
-                      ? "Barely"
-                      : "Untouched"}
-              </span>
-              <ChevronDown
-                className={`w-3 h-3 opacity-60 text-current shrink-0 transition-transform duration-150 ${
-                  isStatusDropdownOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {isStatusDropdownOpen && (
-              <div
-                role="listbox"
-                aria-label="Topic status"
-                className="absolute left-0 top-full mt-1.5 w-36 bg-card rounded-xl border border-border py-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
-              >
-                {STATUS_OPTIONS.map((opt) => {
-                  const isSelected = selectedTopic.status === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => {
-                        onUpdateStatus(selectedTopic.id, opt.value);
-                        setIsStatusDropdownOpen(false);
-                      }}
-                      className={`w-full px-3 py-1.5 text-left flex items-center justify-between cursor-pointer transition-colors ${opt.className}`}
-                    >
-                      <span>{opt.label}</span>
-                      {isSelected && <Check className="w-3 h-3 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <TopicStatusMenu
+            topicId={selectedTopic.id}
+            status={selectedTopic.status}
+            onUpdateStatus={onUpdateStatus}
+          />
         </div>
 
         {/* Centered Topic Title: Click to Rename inline */}

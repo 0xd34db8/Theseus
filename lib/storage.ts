@@ -1,6 +1,6 @@
 import { SyllabusData } from "@/types/syllabus";
-import { initialSyllabusData } from "./mockData";
 import { LLMProvider, AIConfig } from "@/types/ai";
+import { stripModulePrefix } from "./syllabusUtils";
 
 const STORAGE_KEY = "theseus_syllabi_v1";
 const ACTIVE_ID_KEY = "theseus_active_syllabus_id";
@@ -86,8 +86,6 @@ export function removeApiKey(): void {
   localStorage.removeItem(AI_CONFIG_STORAGE);
 }
 
-export const defaultRecentSyllabi: SyllabusData[] = [];
-
 function hasAnyNotesOrContent(syllabus: SyllabusData): boolean {
   if (!syllabus || !syllabus.items) return false;
   function checkItems(items: any[]): boolean {
@@ -151,10 +149,8 @@ export function getSavedSyllabi(includeDrafts: boolean = false): SyllabusData[] 
           s.items.length > 0 &&
           firstTopic
         ) {
-          const recovered = firstTopic
-            .replace(/^(?:unit|module|chapter|co)\s*[\divx]+[:\-–]\s*/i, "")
-            .trim();
-          s.fileName = recovered || firstTopic;
+          const recovered = stripModulePrefix(firstTopic);
+          s.fileName = recovered;
         }
         deduplicated.push(s);
       }

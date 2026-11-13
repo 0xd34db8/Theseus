@@ -343,7 +343,6 @@ body {
 .ProseMirror,
 .prose {
   outline: none;
-  min-height: 320px;
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
   --tw-prose-lead: var(--foreground-subtle);
@@ -805,6 +804,16 @@ ul.contains-task-list {
   margin: 0.5rem 0;
 }
 
+ul[data-type="taskList"]:first-child,
+ul.contains-task-list:first-child {
+  margin-top: 0;
+}
+
+ul[data-type="taskList"]:last-child,
+ul.contains-task-list:last-child {
+  margin-bottom: 0;
+}
+
 ul[data-type="taskList"] li,
 ul.contains-task-list li {
   display: flex;
@@ -833,6 +842,7 @@ ul.contains-task-list li > label input[type="checkbox"] {
 ul[data-type="taskList"] li > div,
 ul.contains-task-list li > div {
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 ul[data-type="taskList"] li[data-checked="true"] > div,

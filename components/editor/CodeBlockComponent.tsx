@@ -7,14 +7,9 @@ import { lowlight, LANGUAGE_LABELS } from "./lowlight";
 
 interface CodeBlockComponentProps {
   node: any;
-  updateAttributes: (attrs: Record<string, any>) => void;
-  extension: any;
 }
 
-export function CodeBlockComponent({
-  node,
-  updateAttributes,
-}: CodeBlockComponentProps) {
+export function CodeBlockComponent({ node }: CodeBlockComponentProps) {
   const [copied, setCopied] = useState(false);
   const rawLang = (node.attrs.language || "").trim().toLowerCase();
 

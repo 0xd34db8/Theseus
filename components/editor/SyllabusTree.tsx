@@ -209,11 +209,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
     return false;
   };
 
-  const renderTreeItem = (
-    item: SyllabusItem,
-    level: number = 0,
-    isLastChild: boolean = false,
-  ) => {
+  const renderTreeItem = (item: SyllabusItem, level: number = 0) => {
     const hasChildren = Boolean(item.children && item.children.length > 0);
     const isSelected = item.id === selectedTopicId;
     const isExpanded = activeSearchQuery && activeSearchQuery.trim()
@@ -411,13 +407,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
               style={{ left: `${Math.max(level * 14 + 11, 10)}px` }}
             />
             <div className="space-y-0.5">
-              {item.children!.map((child, index) =>
-                renderTreeItem(
-                  child,
-                  level + 1,
-                  index === item.children!.length - 1,
-                ),
-              )}
+              {item.children!.map((child) => renderTreeItem(child, level + 1))}
             </div>
           </div>
         )}
@@ -535,9 +525,7 @@ export const SyllabusTree: React.FC<SyllabusTreeProps> = ({
                 </div>
               )}
 
-            {items.map((item, idx) =>
-              renderTreeItem(item, 0, idx === items.length - 1),
-            )}
+            {items.map((item) => renderTreeItem(item, 0))}
 
             {/* Inline Add Root Topic */}
             {isAddingRoot && (

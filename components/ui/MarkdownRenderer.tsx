@@ -3,6 +3,8 @@
 import React from "react";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { parseYouTubeUrl } from "@/lib/youtube";
+import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
 
 interface MarkdownRendererProps {
   content: string;
@@ -12,52 +14,70 @@ interface MarkdownRendererProps {
 
 const customComponents: Components = {
   h1: ({ children }) => (
-    <h1 className="text-2xl font-bold text-foreground mt-5 mb-2.5 pb-1.5 border-b border-border-subtle tracking-tight font-manrope">
+    <h1 className="text-2xl font-bold text-foreground mt-5 first:mt-0 mb-2.5 last:mb-0 pb-1.5 border-b border-border-subtle tracking-tight font-manrope">
       {children}
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="text-xl font-bold text-foreground mt-4 mb-2 pb-1 border-b border-border-subtle tracking-tight font-manrope">
+    <h2 className="text-xl font-bold text-foreground mt-4 first:mt-0 mb-2 last:mb-0 pb-1 border-b border-border-subtle tracking-tight font-manrope">
       {children}
     </h2>
   ),
   h3: ({ children }) => (
-    <h3 className="text-base font-semibold text-foreground mt-3.5 mb-1.5 tracking-tight font-manrope">
+    <h3 className="text-base font-semibold text-foreground mt-3.5 first:mt-0 mb-1.5 last:mb-0 tracking-tight font-manrope">
       {children}
     </h3>
   ),
   h4: ({ children }) => (
-    <h4 className="text-sm font-semibold text-foreground mt-3 mb-1 font-manrope">
+    <h4 className="text-sm font-semibold text-foreground mt-3 first:mt-0 mb-1 last:mb-0 font-manrope">
       {children}
     </h4>
   ),
-  p: ({ children }) => (
-    <p className="text-xs sm:text-sm text-foreground-subtle leading-relaxed mb-3 font-manrope">
-      {children}
-    </p>
-  ),
+  p: ({ node, children }) => {
+    const elementChildren = node?.children?.filter(
+      (child) => !(child.type === "text" && !child.value.trim()),
+    );
+    const hasBlockMedia = elementChildren?.some(
+      (child) => child.type === "element" && child.tagName === "img",
+    );
+    if (hasBlockMedia) {
+      if (elementChildren?.length === 1) {
+        return <>{children}</>;
+      }
+      return (
+        <div className="text-xs sm:text-sm text-foreground-subtle leading-relaxed mt-0 mb-3 last:mb-0 font-manrope">
+          {children}
+        </div>
+      );
+    }
+    return (
+      <p className="text-xs sm:text-sm text-foreground-subtle leading-relaxed mt-0 mb-3 last:mb-0 font-manrope">
+        {children}
+      </p>
+    );
+  },
   ul: ({ children }) => (
-    <ul className="list-disc list-outside pl-5 mb-3 text-xs sm:text-sm text-foreground-subtle space-y-1 font-manrope">
+    <ul className="list-disc list-outside pl-5 mt-0 mb-3 last:mb-0 text-xs sm:text-sm text-foreground-subtle space-y-1 font-manrope">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="list-decimal list-outside pl-5 mb-3 text-xs sm:text-sm text-foreground-subtle space-y-1 font-manrope">
+    <ol className="list-decimal list-outside pl-5 mt-0 mb-3 last:mb-0 text-xs sm:text-sm text-foreground-subtle space-y-1 font-manrope">
       {children}
     </ol>
   ),
   li: ({ children }) => (
-    <li className="text-foreground-subtle leading-relaxed font-manrope pl-0.5">
+    <li className="text-foreground-subtle leading-relaxed font-manrope pl-0.5 my-0">
       {children}
     </li>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="border-l-4 border-accent pl-4 py-1.5 my-3 text-xs sm:text-sm italic text-foreground-subtle bg-accent-subtle rounded-r font-manrope">
+    <blockquote className="border-l-4 border-accent pl-4 py-1.5 my-3 first:mt-0 last:mb-0 text-xs sm:text-sm italic text-foreground-subtle bg-accent-subtle rounded-r font-manrope">
       {children}
     </blockquote>
   ),
   pre: ({ children }) => (
-    <pre className="p-3.5 my-3 rounded-xl bg-neutral-900 text-neutral-100 font-mono text-xs overflow-x-auto leading-relaxed border border-border shadow-2xs">
+    <pre className="p-3.5 my-3 first:mt-0 last:mb-0 max-w-full rounded-xl bg-neutral-900 text-neutral-100 font-mono text-xs overflow-x-auto leading-relaxed border border-border shadow-2xs">
       {children}
     </pre>
   ),
@@ -93,10 +113,12 @@ const customComponents: Components = {
     </span>
   ),
   u: ({ children }: any) => <u>{children}</u>,
-  hr: () => <hr className="my-5 border-t border-border-subtle" />,
+  hr: () => (
+    <hr className="my-5 first:mt-0 last:mb-0 border-t border-border-subtle" />
+  ),
   table: ({ children }) => (
-    <div className="overflow-x-auto my-3 border border-border rounded-xl">
-      <table className="w-full text-xs text-left font-manrope border-collapse">
+    <div className="overflow-x-auto my-3 first:mt-0 last:mb-0 max-w-full border border-border rounded-xl">
+      <table className="w-full text-xs text-left font-manrope border-collapse wrap-break-word">
         {children}
       </table>
     </div>
@@ -127,6 +149,9 @@ const customComponents: Components = {
     </a>
   ),
   img: ({ src, alt, ...props }: any) => {
+    if (typeof src === "string" && parseYouTubeUrl(src)) {
+      return <YouTubeEmbed url={src} className="my-3 first:mt-0 last:mb-0" />;
+    }
     const align = props["data-align"] || props.align;
     const width = props.width;
     const justifyClass =
@@ -136,7 +161,7 @@ const customComponents: Components = {
           ? "justify-end"
           : "justify-start";
     return (
-      <div className={`w-full flex my-4 ${justifyClass}`}>
+      <div className={`w-full flex my-4 first:mt-0 last:mb-0 ${justifyClass}`}>
         <img
           src={src}
           alt={alt || "Image"}
@@ -162,7 +187,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 }) => {
   return (
     <div
-      className={`prose max-w-none text-foreground leading-relaxed font-manrope ${className}`}
+      className={`prose max-w-none min-w-0 wrap-anywhere text-foreground leading-relaxed font-manrope ${className}`}
     >
       {content && content.trim() ? (
         <ReactMarkdown
@@ -172,7 +197,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           {content}
         </ReactMarkdown>
       ) : (
-        <p className="text-muted-foreground italic text-xs sm:text-sm font-manrope">
+        <p className="text-muted-foreground italic text-xs sm:text-sm font-manrope my-0">
           {emptyPlaceholder}
         </p>
       )}

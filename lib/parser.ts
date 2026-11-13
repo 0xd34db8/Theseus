@@ -1,4 +1,5 @@
 import { SyllabusData, SyllabusItem, TopicStatus } from "@/types/syllabus";
+import { stripModulePrefix } from "./syllabusUtils";
 
 /**
  * Parses raw unformatted or pasted text into a hierarchical syllabus structure
@@ -320,10 +321,7 @@ export function tryParseSyllabusJson(
   if (!detectedTitle && rawItems.length > 0) {
     const firstTitle = getItemTitle(rawItems[0]);
     if (firstTitle) {
-      const cleanFirst = firstTitle
-        .replace(/^(?:unit|module|chapter|co)\s*[\divx]+[:\-–]\s*/i, "")
-        .trim();
-      detectedTitle = cleanFirst || firstTitle;
+      detectedTitle = stripModulePrefix(firstTitle);
     }
   }
 

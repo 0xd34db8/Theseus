@@ -2,30 +2,17 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { SyllabusItem, TopicNote, NoteComment } from "@/types/syllabus";
+import { buildTopicNote } from "@/lib/syllabusUtils";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import TextAlign from "@tiptap/extension-text-align";
-import Link from "@tiptap/extension-link";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Markdown } from "tiptap-markdown";
 import { Extension } from "@tiptap/core";
 import { Plus, Trash2, Pencil } from "lucide-react";
-import {
-  CustomUnderline,
-  CustomHighlight,
-  CustomFontSize,
-  getEditorMarkdown,
-} from "./extensions";
+import { createTipTapExtensions, getEditorMarkdown } from "./extensions";
 import { EditorToolbar } from "./EditorToolbar";
 
 interface SubsectionsDrawerProps {
   selectedTopic: SyllabusItem;
   onSaveNote: (topicId: string, note: TopicNote) => void;
-  apiKey?: string;
-  onOpenApiKeyModal?: () => void;
   onClose: () => void;
 }
 
@@ -105,19 +92,10 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
       updatedSubComments = [...subComments, newComment];
     }
 
-    const updatedNote: TopicNote = {
-      id: selectedTopic.note?.id || `note-${selectedTopic.id}`,
-      title: selectedTopic.title,
-      content: selectedTopic.note?.content || "",
-      subComments: updatedSubComments,
-      updatedAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    };
-
-    onSaveNote(selectedTopic.id, updatedNote);
+    onSaveNote(
+      selectedTopic.id,
+      buildTopicNote(selectedTopic, { subComments: updatedSubComments }),
+    );
     editor.commands.setContent("");
     setEditingCommentId(null);
     setIsAdding(false);
@@ -128,65 +106,30 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
 
   // Live TipTap Markdown Editor for Sub-sections
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        link: false,
-        underline: false,
-        heading: {
-          levels: [1, 2, 3],
-        },
-        bulletList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-        orderedList: {
-          keepMarks: true,
-          keepAttributes: false,
-        },
-      }),
-      CustomUnderline,
-      CustomFontSize,
-      TaskList,
-      TaskItem.configure({
-        nested: true,
-      }),
-      CustomHighlight.configure({
-        multicolor: false,
-      }),
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-      }),
-      Placeholder.configure({
-        placeholder:
-          "Write sub-section notes (# for heading, - for list, [ ] for todo)...",
-      }),
-      Extension.create({
-        name: "subSectionSubmitShortcut",
-        addKeyboardShortcuts() {
-          return {
-            "Mod-Enter": () => {
-              handleSaveSubCommentRef.current();
-              return true;
-            },
-          };
-        },
-      }),
-      Markdown.configure({
-        html: true,
-        tightLists: true,
-        bulletListMarker: "-",
-      }),
-    ],
+    extensions: createTipTapExtensions({
+      headingLevels: [1, 2, 3],
+      placeholder:
+        "Write sub-section notes (# for heading, - for list, [ ] for todo)...",
+      extraExtensions: [
+        Extension.create({
+          name: "subSectionSubmitShortcut",
+          addKeyboardShortcuts() {
+            return {
+              "Mod-Enter": () => {
+                handleSaveSubCommentRef.current();
+                return true;
+              },
+            };
+          },
+        }),
+      ],
+    }),
     content: "",
     immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
-          "prose max-w-none focus:outline-hidden min-h-[90px] max-h-[160px] overflow-y-auto text-xs leading-relaxed text-foreground px-3 py-2 font-manrope cursor-text",
+          "prose max-w-none min-w-0 wrap-anywhere focus:outline-hidden min-h-[90px] max-h-[240px] overflow-y-auto overflow-x-hidden text-xs leading-relaxed text-foreground px-3 py-2 font-manrope cursor-text",
       },
     },
   });
@@ -243,19 +186,10 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
       setIsAdding(false);
     }
     const updatedSubComments = subComments.filter((c) => c.id !== commentId);
-    const updatedNote: TopicNote = {
-      id: selectedTopic.note?.id || `note-${selectedTopic.id}`,
-      title: selectedTopic.title,
-      content: selectedTopic.note?.content || "",
-      subComments: updatedSubComments,
-      updatedAt: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-    };
-
-    onSaveNote(selectedTopic.id, updatedNote);
+    onSaveNote(
+      selectedTopic.id,
+      buildTopicNote(selectedTopic, { subComments: updatedSubComments }),
+    );
   };
 
   return (
@@ -264,7 +198,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
       className="fixed bottom-14 right-4 sm:right-6 w-[380px] sm:w-[460px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[75vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 font-manrope"
     >
       {/* Scrollable Subsections Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 bg-subtle">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-3 min-h-0 min-w-0 bg-subtle">
         {subComments.length === 0 && !isAdding && (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground select-none">
             <p className="text-xs font-medium text-foreground mb-1">
@@ -291,20 +225,20 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
             <div
               key={comment.id}
               onDoubleClick={() => handleStartEdit(comment)}
-              className={`p-3 rounded-xl space-y-1.5 text-xs transition-colors group cursor-default ${
+              className={`p-3 rounded-xl space-y-1.5 text-xs transition-colors group cursor-default min-w-0 max-w-full overflow-hidden ${
                 isCurrentlyEditing
                   ? "bg-accent-subtle border border-accent/40 ring-1 ring-accent/30 shadow-2xs"
                   : "bg-card border border-border shadow-2xs hover:border-border"
               }`}
               title="Double-click to edit"
             >
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground min-w-0">
                 {comment.author && comment.author.trim() ? (
-                  <span className="font-semibold text-foreground truncate pr-2">
+                  <span className="font-semibold text-foreground truncate pr-2 min-w-0">
                     {comment.author}
                   </span>
                 ) : (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[10px] text-muted-foreground font-mono">
                       {comment.timestamp}
                     </span>
@@ -351,7 +285,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
                   </button>
                 </div>
               </div>
-              <div className="text-foreground leading-relaxed text-xs">
+              <div className="text-foreground leading-relaxed text-xs min-w-0 max-w-full">
                 <MarkdownRenderer content={comment.content} />
               </div>
             </div>
@@ -361,7 +295,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
 
       {/* Bottom Composer Dock with TipTap Live Markdown Editor & Complete Toolbar */}
       {isAdding ? (
-        <div className="border-t border-border bg-card flex flex-col shrink-0 animate-in slide-in-from-bottom-2 duration-150">
+        <div className="border-t border-border bg-card flex flex-col shrink-0 min-w-0 animate-in slide-in-from-bottom-2 duration-150">
           <EditorToolbar
             editor={editor}
             compact
@@ -370,7 +304,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
 
           {/* Editable Editor Area */}
           <div
-            className="p-1 cursor-text"
+            className="p-1 cursor-text min-w-0"
             onClick={() => {
               if (editor && !editor.isFocused) {
                 editor.commands.focus();

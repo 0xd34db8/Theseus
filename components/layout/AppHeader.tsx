@@ -14,11 +14,8 @@ interface AppHeaderProps {
    */
   actions?: React.ReactNode;
   /**
-   * Optional custom close/minimize/maximize handlers
+   * Optional home navigation callback
    */
-  onClose?: () => void;
-  onMinimize?: () => void;
-  onMaximize?: () => void;
   onHomeClick?: () => void;
 }
 

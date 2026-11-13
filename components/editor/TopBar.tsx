@@ -17,9 +17,6 @@ interface TopBarProps {
   onExport?: () => void;
   onApiKeyClick?: () => void;
   apiKeyConfigured?: boolean;
-  onClose?: () => void;
-  onMinimize?: () => void;
-  onMaximize?: () => void;
   onHomeClick?: () => void;
 }
 
@@ -35,9 +32,6 @@ export const TopBar: React.FC<TopBarProps> = ({
   onExport,
   onApiKeyClick,
   apiKeyConfigured,
-  onClose,
-  onMinimize,
-  onMaximize,
   onHomeClick,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -271,9 +265,6 @@ export const TopBar: React.FC<TopBarProps> = ({
     <AppHeader
       titleElement={titleElement}
       actions={actions}
-      onClose={onClose}
-      onMinimize={onMinimize}
-      onMaximize={onMaximize}
       onHomeClick={onHomeClick}
     />
   );

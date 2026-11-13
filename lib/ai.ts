@@ -262,7 +262,7 @@ interface RawAiResponse {
   items: RawAiItem[];
 }
 
-export function normalizeItems(
+function normalizeItems(
   rawList: RawAiItem[],
   prefix = "item",
 ): SyllabusItem[] {
@@ -282,7 +282,7 @@ export function normalizeItems(
   });
 }
 
-export const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser for the Theseus study application.**
+const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser for the Theseus study application.**
 **Transform unstructured or tabular syllabus content into a clean hierarchical JSON tree.**
 
 **CRITICAL PARSING & FIDELITY RULES:**
@@ -297,12 +297,12 @@ export const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser
 
 5. **Completeness:** NEVER omit any conceptual topic from the source syllabus. Preserve all academic concepts mentioned.`;
 
-export const CORE_SYLLABUS_FILTER_RULE = `**CORE SYLLABUS ONLY RULE:**
+const CORE_SYLLABUS_FILTER_RULE = `**CORE SYLLABUS ONLY RULE:**
 
 * Focus exclusively on the core curriculum, units, modules, chapters, and conceptual topics.
 * STRICTLY IGNORE and EXCLUDE all non-core sections such as lab components, practical experiments, course outcomes, learning objectives, textbooks/reference book lists, grading schemes, evaluation rubrics, and exam patterns, guest lectures.`;
 
-export const SYLLABUS_TREE_OUTPUT_SCHEMA = `**OUTPUT SCHEMA:**
+const SYLLABUS_TREE_OUTPUT_SCHEMA = `**OUTPUT SCHEMA:**
 Output STRICTLY valid, parsed JSON matching this exact schema. Do not include markdown formatting blocks (like \`\`\`json), preambles, or postscripts. Just the raw JSON object:
 {
   "courseTitle": "Exact Course Title Extracted from Document",
@@ -323,7 +323,7 @@ Output STRICTLY valid, parsed JSON matching this exact schema. Do not include ma
   ]
 }`;
 
-export const NON_VERBATIM_SYLLABUS_TREE_PROMPT = `You are a curriculum parser for the Theseus study application.
+const NON_VERBATIM_SYLLABUS_TREE_PROMPT = `You are a curriculum parser for the Theseus study application.
 Transform messy or tabular syllabus content into a clean hierarchical tree.
 
 CRITICAL FORMATTING RULES:
@@ -350,7 +350,7 @@ CRITICAL FORMATTING RULES:
   ]
 }`;
 
-export function buildSyllabusTreePrompt(options?: {
+function buildSyllabusTreePrompt(options?: {
   coreOnly?: boolean;
   nonVerbatim?: boolean;
 }): string {
@@ -373,52 +373,8 @@ export function buildSyllabusTreePrompt(options?: {
   return sections.join("\n\n");
 }
 
-export const SYLLABUS_TREE_SYSTEM_PROMPT = buildSyllabusTreePrompt({ coreOnly: true });
-
-/**
- * Generates a prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
- * to format a syllabus into Theseus's JSON tree structure.
- */
-export function getSyllabusTreePrompt(options?: {
-  rawText?: string;
-  coreOnly?: boolean;
-  nonVerbatim?: boolean;
-}): string {
-  const isCoreOnly = options?.coreOnly !== false;
-  const isNonVerbatim = options?.nonVerbatim === true;
-  const basePrompt = buildSyllabusTreePrompt({
-    coreOnly: isCoreOnly,
-    nonVerbatim: isNonVerbatim,
-  });
-
-  if (options?.rawText && options.rawText.trim()) {
-    return `${basePrompt}\n\nSyllabus Content:\n\n${options.rawText.trim()}`;
-  }
-  return `${basePrompt}\n\nPlease parse the attached document into the structured syllabus format.`;
-}
-
-/**
- * Generates a prompt for external LLM interfaces to produce comprehensive study notes
- * for a specific syllabus topic in GitHub-flavored Markdown.
- */
-export function getNoteGenerationPrompt(options: {
-  topicTitle: string;
-  parentTitle?: string;
-  courseTitle?: string;
-}): string {
-  const contextParts: string[] = [];
-  contextParts.push(`Topic: "${options.topicTitle}"`);
-  if (options.parentTitle) {
-    contextParts.push(`Unit/Section: "${options.parentTitle}"`);
-  }
-  if (options.courseTitle) {
-    contextParts.push(`Course: "${options.courseTitle}"`);
-  }
-
-  return `You are an academic study tutor for the Theseus app.
+const NOTE_GENERATION_SYSTEM_PROMPT = `You are an academic study tutor for the Theseus app.
 Generate comprehensive study notes in GitHub-flavored Markdown for the given syllabus topic.
-
-${contextParts.join("\n")}
 
 Structure your notes clearly:
 ### Overview
@@ -437,6 +393,56 @@ Practical usage.
 Key takeaways.
 
 Start directly with markdown content. Do not include conversational remarks.`;
+
+function buildTopicContext(options: {
+  topicTitle: string;
+  parentTitle?: string;
+  courseTitle?: string;
+}): string {
+  const contextParts: string[] = [`Topic: "${options.topicTitle}"`];
+  if (options.parentTitle) {
+    contextParts.push(`Unit/Section: "${options.parentTitle}"`);
+  }
+  if (options.courseTitle) {
+    contextParts.push(`Course: "${options.courseTitle}"`);
+  }
+  return contextParts.join("\n");
+}
+
+/**
+ * Generates a prompt for external LLM interfaces (ChatGPT, Claude, Gemini, etc.)
+ * to format a syllabus into Theseus's JSON tree structure.
+ */
+export function getSyllabusTreePrompt(options?: {
+  rawText?: string;
+  coreOnly?: boolean;
+  nonVerbatim?: boolean;
+}): string {
+  const basePrompt = buildSyllabusTreePrompt({
+    coreOnly: options?.coreOnly !== false,
+    nonVerbatim: options?.nonVerbatim === true,
+  });
+
+  if (options?.rawText && options.rawText.trim()) {
+    return `${basePrompt}\n\nSyllabus Content:\n\n${options.rawText.trim()}`;
+  }
+  return `${basePrompt}\n\nPlease parse the attached document into the structured syllabus format.`;
+}
+
+/**
+ * Generates a prompt for external LLM interfaces to produce comprehensive study notes
+ * for a specific syllabus topic in GitHub-flavored Markdown.
+ */
+export function getNoteGenerationPrompt(options: {
+  topicTitle: string;
+  parentTitle?: string;
+  courseTitle?: string;
+}): string {
+  const topicContext = buildTopicContext(options);
+  return NOTE_GENERATION_SYSTEM_PROMPT.replace(
+    "for the given syllabus topic.",
+    `for the given syllabus topic.\n\n${topicContext}`,
+  );
 }
 
 /**
@@ -515,79 +521,14 @@ export async function generateNotesWithAI(
   },
   configOrKey?: string | AIConfig,
 ): Promise<string> {
-  const systemPrompt = `You are an academic study tutor for the Theseus app.
-Generate comprehensive study notes in GitHub-flavored Markdown for the given syllabus topic.
-
-Structure your notes clearly:
-### Overview
-Brief definition and scope.
-
-### Key Concepts & Mechanisms
-Bullet points breaking down mechanisms, components, and principles.
-
-### Formulas / Code / Diagrams (if applicable)
-Use clean LaTeX ($$...$$) or code blocks.
-
-### Real-World Applications & Examples
-Practical usage.
-
-### High-Yield Summary
-Key takeaways.
-
-Start directly with markdown content. Do not include conversational remarks.`;
-
-  const userPrompt = `Topic: "${options.topicTitle}"
-${options.parentTitle ? `Unit/Section: "${options.parentTitle}"` : ""}
-${options.courseTitle ? `Course: "${options.courseTitle}"` : ""}`;
-
   const notes = await callUniversalLLM(
     {
-      systemPrompt,
-      userPrompt,
+      systemPrompt: NOTE_GENERATION_SYSTEM_PROMPT,
+      userPrompt: buildTopicContext(options),
       jsonOutput: false,
     },
     configOrKey,
   );
 
   return notes.trim();
-}
-
-/**
- * Generates a focused sub-section explanation in JSON
- */
-export async function generateSubCommentWithAI(
-  options: {
-    topicTitle: string;
-    aspectOrQuestion: string;
-  },
-  configOrKey?: string | AIConfig,
-): Promise<{ title: string; content: string }> {
-  const systemPrompt = `For the syllabus topic "${options.topicTitle}", explain the aspect: "${options.aspectOrQuestion}".
-Output strictly valid JSON with:
-{
-  "title": "Short subtitle (2-4 words)",
-  "content": "Clear, markdown-formatted explanation"
-}`;
-
-  const responseText = await callUniversalLLM(
-    {
-      systemPrompt,
-      userPrompt: `Explain: ${options.aspectOrQuestion}`,
-      jsonOutput: true,
-    },
-    configOrKey,
-  );
-
-  try {
-    const data = JSON.parse(responseText);
-    return {
-      title: data.title || "Sub-section",
-      content: data.content || responseText,
-    };
-  } catch {
-    return {
-      title: "Sub-section",
-      content: responseText,
-    };
-  }
 }

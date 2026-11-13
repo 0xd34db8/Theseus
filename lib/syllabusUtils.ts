@@ -1,4 +1,101 @@
-import { SyllabusData, SyllabusItem, TopicStatus } from "@/types/syllabus";
+import {
+  SyllabusData,
+  SyllabusItem,
+  TopicNote,
+  TopicStatus,
+} from "@/types/syllabus";
+
+export const initialSyllabusData: SyllabusData = {
+  id: "syllabus-blank",
+  fileName: "Untitled Syllabus",
+  lastModified: "Just now",
+  items: [],
+};
+
+export interface TopicStatusMeta {
+  value: TopicStatus;
+  label: string;
+  pillClassName: string;
+  optionClassName: string;
+}
+
+export const TOPIC_STATUS_META: Record<TopicStatus, TopicStatusMeta> = {
+  done: {
+    value: "done",
+    label: "Done",
+    pillClassName:
+      "bg-status-done-bg border-status-done-border text-status-done-fg",
+    optionClassName: "hover:bg-status-done-bg text-status-done-fg font-medium",
+  },
+  partial: {
+    value: "partial",
+    label: "Partially",
+    pillClassName:
+      "bg-status-partial-bg border-status-partial-border text-status-partial-fg",
+    optionClassName:
+      "hover:bg-status-partial-bg text-status-partial-fg font-medium",
+  },
+  barely: {
+    value: "barely",
+    label: "Barely",
+    pillClassName:
+      "bg-status-barely-bg border-status-barely-border text-status-barely-fg",
+    optionClassName:
+      "hover:bg-status-barely-bg text-status-barely-fg font-medium",
+  },
+  untouched: {
+    value: "untouched",
+    label: "Untouched",
+    pillClassName: "bg-subtle border-border text-foreground-subtle",
+    optionClassName: "hover:bg-subtle text-foreground-subtle",
+  },
+};
+
+export const TOPIC_STATUS_ORDER: TopicStatus[] = [
+  "untouched",
+  "barely",
+  "partial",
+  "done",
+];
+
+/**
+ * Formats the current local time for note timestamps.
+ */
+export function formatNoteTimestamp(includeSeconds = true): string {
+  return new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(includeSeconds ? { second: "2-digit" } : {}),
+  });
+}
+
+/**
+ * Builds a complete TopicNote while preserving existing metadata.
+ */
+export function buildTopicNote(
+  topic: Pick<SyllabusItem, "id" | "title" | "note">,
+  overrides: Partial<TopicNote> = {},
+): TopicNote {
+  return {
+    id: topic.note?.id || `note-${topic.id}`,
+    title: topic.title,
+    content: topic.note?.content || "",
+    subComments: topic.note?.subComments,
+    updatedAt: formatNoteTimestamp(true),
+    ...overrides,
+  };
+}
+
+/**
+ * Strips leading Unit/Module/Chapter/CO numbering prefixes from a heading title.
+ */
+export function stripModulePrefix(title: string): string {
+  return (
+    title
+      .replace(/^(?:unit|module|chapter|co)\s*[\divx]+[:\-–]\s*/i, "")
+      .trim() || title
+  );
+}
 
 export interface SyllabusStats {
   total: number;
@@ -64,22 +161,6 @@ export function calculateSyllabusStats(items: SyllabusItem[]): SyllabusStats {
     barely: { count: barely, pct: Math.round((barely / total) * 100) },
     untouched: { count: untouched, pct: Math.round((untouched / total) * 100) },
   };
-}
-
-/**
- * Returns overall completion percentage for done topics
- */
-export function getCompletionPct(items: SyllabusItem[]): number {
-  const stats = calculateSyllabusStats(items);
-  return stats.done.pct;
-}
-
-/**
- * Returns total count of leaf topics
- */
-export function getTopicCount(items: SyllabusItem[]): number {
-  const stats = calculateSyllabusStats(items);
-  return stats.total;
 }
 
 /**

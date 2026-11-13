@@ -481,189 +481,166 @@ export function EditorToolbar({
       <div className={dividerClass} />
 
       {/* Inline Marks: Bold, Italic, Underline, Strike, Highlight, Code */}
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        className={btnClass(editor.isActive("bold"))}
-        title="Bold (Ctrl+B)"
-      >
-        <Bold className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={btnClass(editor.isActive("italic"))}
-        title="Italic (Ctrl+I)"
-      >
-        <Italic className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={btnClass(editor.isActive("underline"))}
-        title="Underline (Ctrl+U)"
-      >
-        <UnderlineIcon className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        className={btnClass(editor.isActive("strike"))}
-        title="Strikethrough (Ctrl+Shift+S)"
-      >
-        <Strikethrough className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleHighlight().run()}
-        className={btnClass(editor.isActive("highlight"))}
-        title="Highlight marker"
-      >
-        <Highlighter className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-        className={btnClass(editor.isActive("code"))}
-        title="Inline Code (Ctrl+E)"
-      >
-        <Code className={iconClass} />
-      </button>
+      {[
+        {
+          key: "bold",
+          title: "Bold (Ctrl+B)",
+          active: editor.isActive("bold"),
+          onClick: () => editor.chain().focus().toggleBold().run(),
+          Icon: Bold,
+        },
+        {
+          key: "italic",
+          title: "Italic (Ctrl+I)",
+          active: editor.isActive("italic"),
+          onClick: () => editor.chain().focus().toggleItalic().run(),
+          Icon: Italic,
+        },
+        {
+          key: "underline",
+          title: "Underline (Ctrl+U)",
+          active: editor.isActive("underline"),
+          onClick: () => editor.chain().focus().toggleUnderline().run(),
+          Icon: UnderlineIcon,
+        },
+        {
+          key: "strike",
+          title: "Strikethrough (Ctrl+Shift+S)",
+          active: editor.isActive("strike"),
+          onClick: () => editor.chain().focus().toggleStrike().run(),
+          Icon: Strikethrough,
+        },
+        {
+          key: "highlight",
+          title: "Highlight marker",
+          active: editor.isActive("highlight"),
+          onClick: () => editor.chain().focus().toggleHighlight().run(),
+          Icon: Highlighter,
+        },
+        {
+          key: "code",
+          title: "Inline Code (Ctrl+E)",
+          active: editor.isActive("code"),
+          onClick: () => editor.chain().focus().toggleCode().run(),
+          Icon: Code,
+        },
+      ].map(({ key, title, active, onClick, Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onClick}
+          className={btnClass(active)}
+          title={title}
+        >
+          <Icon className={iconClass} />
+        </button>
+      ))}
 
       <div className={dividerClass} />
 
       {/* Lists & Structural Elements */}
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={btnClass(editor.isActive("bulletList"))}
-        title="Bullet list"
-      >
-        <List className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={btnClass(editor.isActive("orderedList"))}
-        title="Numbered list"
-      >
-        <ListOrdered className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleTaskList().run()}
-        className={btnClass(editor.isActive("taskList"))}
-        title="Checklist / Todo (Ctrl+Shift+9)"
-      >
-        <CheckSquare className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        className={btnClass(editor.isActive("blockquote"))}
-        title="Quote block"
-      >
-        <Quote className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        className={btnClass(editor.isActive("codeBlock"))}
-        title="Code block"
-      >
-        <FileCode className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
-        className={btnClass(false)}
-        title="Horizontal Divider"
-      >
-        <Minus className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() =>
-          (editor.chain().focus() as any)
-            .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-            .run()
-        }
-        className={btnClass(editor.isActive("table"))}
-        title="Insert Table (3x3)"
-      >
-        <TableIcon className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() =>
-          editor
-            .chain()
-            .focus()
-            .insertContent({
-              type: "mathNode",
-              attrs: { latex: "E = mc^2", display: "no" },
-            })
-            .run()
-        }
-        className={btnClass(editor.isActive("mathNode"))}
-        title="Insert LaTeX Formula"
-      >
-        <Sigma className={iconClass} />
-      </button>
+      {[
+        {
+          key: "bulletList",
+          title: "Bullet list",
+          active: editor.isActive("bulletList"),
+          onClick: () => editor.chain().focus().toggleBulletList().run(),
+          Icon: List,
+        },
+        {
+          key: "orderedList",
+          title: "Numbered list",
+          active: editor.isActive("orderedList"),
+          onClick: () => editor.chain().focus().toggleOrderedList().run(),
+          Icon: ListOrdered,
+        },
+        {
+          key: "taskList",
+          title: "Checklist / Todo (Ctrl+Shift+9)",
+          active: editor.isActive("taskList"),
+          onClick: () => editor.chain().focus().toggleTaskList().run(),
+          Icon: CheckSquare,
+        },
+        {
+          key: "blockquote",
+          title: "Quote block",
+          active: editor.isActive("blockquote"),
+          onClick: () => editor.chain().focus().toggleBlockquote().run(),
+          Icon: Quote,
+        },
+        {
+          key: "codeBlock",
+          title: "Code block",
+          active: editor.isActive("codeBlock"),
+          onClick: () => editor.chain().focus().toggleCodeBlock().run(),
+          Icon: FileCode,
+        },
+        {
+          key: "hr",
+          title: "Horizontal Divider",
+          active: false,
+          onClick: () => editor.chain().focus().setHorizontalRule().run(),
+          Icon: Minus,
+        },
+        {
+          key: "table",
+          title: "Insert Table (3x3)",
+          active: editor.isActive("table"),
+          onClick: () =>
+            (editor.chain().focus() as any)
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run(),
+          Icon: TableIcon,
+        },
+        {
+          key: "mathNode",
+          title: "Insert LaTeX Formula",
+          active: editor.isActive("mathNode"),
+          onClick: () =>
+            editor
+              .chain()
+              .focus()
+              .insertContent({
+                type: "mathNode",
+                attrs: { latex: "E = mc^2", display: "no" },
+              })
+              .run(),
+          Icon: Sigma,
+        },
+      ].map(({ key, title, active, onClick, Icon }) => (
+        <button
+          key={key}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onClick}
+          className={btnClass(active)}
+          title={title}
+        >
+          <Icon className={iconClass} />
+        </button>
+      ))}
 
       <div className={dividerClass} />
 
       {/* Alignment */}
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().setTextAlign("left").run()}
-        className={btnClass(editor.isActive({ textAlign: "left" }))}
-        title="Align Left (Ctrl+Shift+L)"
-      >
-        <AlignLeft className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().setTextAlign("center").run()}
-        className={btnClass(editor.isActive({ textAlign: "center" }))}
-        title="Align Center (Ctrl+Shift+E)"
-      >
-        <AlignCenter className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().setTextAlign("right").run()}
-        className={btnClass(editor.isActive({ textAlign: "right" }))}
-        title="Align Right (Ctrl+Shift+R)"
-      >
-        <AlignRight className={iconClass} />
-      </button>
-      <button
-        type="button"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => editor.chain().focus().setTextAlign("justify").run()}
-        className={btnClass(editor.isActive({ textAlign: "justify" }))}
-        title="Align Justify (Ctrl+Shift+J)"
-      >
-        <AlignJustify className={iconClass} />
-      </button>
+      {[
+        { align: "left", title: "Align Left (Ctrl+Shift+L)", Icon: AlignLeft },
+        { align: "center", title: "Align Center (Ctrl+Shift+E)", Icon: AlignCenter },
+        { align: "right", title: "Align Right (Ctrl+Shift+R)", Icon: AlignRight },
+        { align: "justify", title: "Align Justify (Ctrl+Shift+J)", Icon: AlignJustify },
+      ].map(({ align, title, Icon }) => (
+        <button
+          key={align}
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => editor.chain().focus().setTextAlign(align).run()}
+          className={btnClass(editor.isActive({ textAlign: align }))}
+          title={title}
+        >
+          <Icon className={iconClass} />
+        </button>
+      ))}
 
       {/* Clear Formatting */}
       {showClearFormatting && (
