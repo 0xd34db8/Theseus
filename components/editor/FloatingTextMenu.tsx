@@ -171,8 +171,8 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
       return;
     }
 
-    // Do not show on image selection
-    if (editor.isActive("image")) {
+    // Do not show on image or YouTube embed selection
+    if (editor.isActive("image") || editor.isActive("youtube")) {
       setIsVisible(false);
       return;
     }

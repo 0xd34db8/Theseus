@@ -3,7 +3,7 @@
 import React from "react";
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { parseYouTubeUrl } from "@/lib/youtube";
+import { parseYouTubeEmbedMeta, parseYouTubeUrl } from "@/lib/youtube";
 import { YouTubeEmbed } from "@/components/ui/YouTubeEmbed";
 
 interface MarkdownRendererProps {
@@ -150,7 +150,17 @@ const customComponents: Components = {
   ),
   img: ({ src, alt, ...props }: any) => {
     if (typeof src === "string" && parseYouTubeUrl(src)) {
-      return <YouTubeEmbed url={src} className="my-3 first:mt-0 last:mb-0" />;
+      const meta = parseYouTubeEmbedMeta(props.title);
+      const embedAlign = meta.align || props["data-align"] || props.align;
+      const embedWidth = meta.width ?? props["data-width"] ?? props.width;
+      return (
+        <YouTubeEmbed
+          url={src}
+          width={embedWidth}
+          align={embedAlign}
+          className="my-3 first:mt-0 last:mb-0"
+        />
+      );
     }
     const align = props["data-align"] || props.align;
     const width = props.width;

@@ -4,10 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TopBar } from "@/components/editor/TopBar";
 import { SyllabusTree } from "@/components/editor/SyllabusTree";
 import { NoteEditor } from "@/components/editor/NoteEditor";
-import { StatusChip } from "@/components/editor/StatusChip";
-import { SubsectionsDrawer } from "@/components/editor/SubsectionsDrawer";
+import { EditorFooter } from "@/components/editor/EditorFooter";
 import { ApiKeyModal } from "@/components/modals/ApiKeyModal";
-import { ListTree, ChevronUp, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import {
   getSavedSyllabi,
   saveSyllabus,
@@ -53,7 +52,6 @@ export default function EditPage() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"tree" | "editor">("tree");
   const [activePanel, setActivePanel] = useState<"tree" | "editor">("tree");
-  const [isSubsectionsOpen, setIsSubsectionsOpen] = useState<boolean>(false);
 
   const {
     treeWidth,
@@ -596,105 +594,17 @@ export default function EditPage() {
         <div className="fixed inset-0 z-50 cursor-col-resize select-none bg-transparent" />
       )}
 
-      {/* Website Footer: Status Chip, Subsections Interface, and Controls */}
-      <footer className="border-t border-border-subtle bg-background flex flex-col shrink-0 z-20 font-manrope">
-        {/* Expandable Sub-sections Drawer */}
-        {isSubsectionsOpen && selectedTopic && (
-          <SubsectionsDrawer
-            selectedTopic={selectedTopic}
-            onSaveNote={handleSaveNote}
-            onClose={() => setIsSubsectionsOpen(false)}
-          />
-        )}
-
-        {/* Bottom Bar: Status Chip (left), Mobile Tab Switcher (center), Sub-sections Trigger & Branding (right) */}
-        <div className="px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 flex items-center justify-between gap-2">
-          {/* Left Side: Status Chip */}
-          <div className="flex items-center gap-2">
-            <StatusChip items={syllabus.items} />
-          </div>
-
-          {/* Middle: Mobile View Switcher between Syllabus Tree and Note Editor */}
-          <div className="flex md:hidden items-center p-0.5 bg-subtle rounded-full text-xs font-medium shadow-2xs">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileTab("tree");
-                setActivePanel("tree");
-              }}
-              className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                mobileTab === "tree"
-                  ? "bg-card text-foreground shadow-2xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Tree
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileTab("editor");
-                setActivePanel("editor");
-              }}
-              className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
-                mobileTab === "editor"
-                  ? "bg-card text-foreground shadow-2xs font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Note
-            </button>
-          </div>
-
-          {/* Right Side: Sub-sections Trigger Pill + Theseus label */}
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              data-subsections-trigger="true"
-              onClick={() => {
-                if (!selectedTopic) return;
-                setIsSubsectionsOpen((prev) => !prev);
-              }}
-              disabled={!selectedTopic}
-              className={`group inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-normal tracking-tight shadow-2xs transition-all cursor-pointer ${
-                !selectedTopic
-                  ? "bg-subtle text-muted-foreground border border-border/40 cursor-not-allowed"
-                  : isSubsectionsOpen
-                    ? "bg-primary text-primary-foreground border border-transparent shadow-2xs"
-                    : "bg-card text-foreground border border-border hover:bg-subtle"
-              }`}
-              title={
-                selectedTopic
-                  ? `Sub-sections for "${selectedTopic.title}" (${selectedTopic.note?.subComments?.length || 0})`
-                  : "Select a topic to view or add sub-sections"
-              }
-            >
-              <ListTree className="w-3.5 h-3.5" />
-              <span>Sub-sections</span>
-              {selectedTopic?.note?.subComments && selectedTopic.note.subComments.length > 0 && (
-                <span
-                  className={`px-1.5 py-0.2 text-[10px] font-mono rounded-full font-semibold ${
-                    isSubsectionsOpen
-                      ? "bg-primary-foreground/20 text-primary-foreground"
-                      : "bg-subtle text-foreground-subtle"
-                  }`}
-                >
-                  {selectedTopic.note.subComments.length}
-                </span>
-              )}
-              <ChevronUp
-                className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                  isSubsectionsOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            <div className="text-[11px] text-muted-foreground font-light select-none hidden xs:block">
-              Theseus
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Editor Footer */}
+      <EditorFooter
+        items={syllabus.items}
+        selectedTopic={selectedTopic}
+        mobileTab={mobileTab}
+        onSelectMobileTab={(tab) => {
+          setMobileTab(tab);
+          setActivePanel(tab);
+        }}
+        onSaveNote={handleSaveNote}
+      />
 
       {/* API Key Modal */}
       <ApiKeyModal

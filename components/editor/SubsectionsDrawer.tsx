@@ -46,7 +46,10 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
         !popoverRef.current.contains(e.target as Node)
       ) {
         const target = e.target as HTMLElement | null;
-        if (target?.closest("[data-subsections-trigger]")) {
+        if (
+          target?.closest("[data-subsections-trigger]") ||
+          target?.closest("[data-floating-editor-ui]")
+        ) {
           return;
         }
         onClose();

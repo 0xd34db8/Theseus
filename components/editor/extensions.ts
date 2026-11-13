@@ -129,7 +129,9 @@ export function createTipTapExtensions(
     DefinitionDescription,
     MarkdownPlugins,
     TextAlign.configure({
-      types: withImages ? ["heading", "paragraph", "image"] : ["heading", "paragraph"],
+      types: withImages
+        ? ["heading", "paragraph", "image", "youtube"]
+        : ["heading", "paragraph", "youtube"],
     }),
     Link.configure({
       openOnClick: false,

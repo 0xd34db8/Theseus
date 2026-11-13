@@ -110,28 +110,48 @@ export function EditorToolbar({
     });
   }, [updatePopoverCoords]);
 
-  // Compute active size for text or image
+  const getSelectedMediaNode = useCallback((): {
+    type: "image" | "youtube";
+    attrs: Record<string, any>;
+  } | null => {
+    if (!editor) return null;
+    if (editor.isActive("image")) {
+      return { type: "image", attrs: editor.getAttributes("image") };
+    }
+    if (editor.isActive("youtube")) {
+      return { type: "youtube", attrs: editor.getAttributes("youtube") };
+    }
+
+    const { from, to } = editor.state.selection;
+    let found: { type: "image" | "youtube"; attrs: Record<string, any> } | null =
+      null;
+    editor.state.doc.nodesBetween(from, to, (node) => {
+      if (
+        !found &&
+        (node.type.name === "image" || node.type.name === "youtube")
+      ) {
+        found = {
+          type: node.type.name as "image" | "youtube",
+          attrs: node.attrs,
+        };
+      }
+    });
+    return found;
+  }, [editor]);
+
+  // Compute active size for text, image, or embed
   const getActiveSize = useCallback(() => {
     if (!editor) return "16 (normal)";
 
-    // 1. If an image is selected
-    const isImage = editor.isActive("image");
-    let imageAttrs: any = isImage ? editor.getAttributes("image") : null;
-    if (!imageAttrs) {
-      const { from, to } = editor.state.selection;
-      editor.state.doc.nodesBetween(from, to, (node) => {
-        if (node.type.name === "image") {
-          imageAttrs = node.attrs;
-        }
-      });
-    }
-
-    if (imageAttrs) {
-      if (!imageAttrs.width) return "16 (normal)";
+    // 1. If an image or YouTube embed is selected
+    const mediaNode = getSelectedMediaNode();
+    if (mediaNode) {
+      const mediaAttrs = mediaNode.attrs;
+      if (!mediaAttrs.width) return "16 (normal)";
       const w =
-        typeof imageAttrs.width === "number"
-          ? imageAttrs.width
-          : parseInt(String(imageAttrs.width), 10);
+        typeof mediaAttrs.width === "number"
+          ? mediaAttrs.width
+          : parseInt(String(mediaAttrs.width), 10);
       if (isNaN(w)) return "16 (normal)";
 
       const parentEl =
@@ -199,7 +219,7 @@ export function EditorToolbar({
     } catch {}
 
     return "16 (normal)";
-  }, [editor]);
+  }, [editor, getSelectedMediaNode]);
 
   // Keep input in sync with highlighted text or image
   useEffect(() => {
@@ -263,17 +283,25 @@ export function EditorToolbar({
     const clean = rawVal.replace(/\(normal\)/gi, "").trim();
     const num = parseInt(clean, 10);
 
-    const isImg = editor.isActive("image");
+    const activeMediaType: "image" | "youtube" | null = editor.isActive("image")
+      ? "image"
+      : editor.isActive("youtube")
+        ? "youtube"
+        : null;
+
     const { from, to } = editor.state.selection;
-    let hasImg = false;
+    let hasMedia = false;
     editor.state.doc.nodesBetween(from, to, (node) => {
-      if (node.type.name === "image") hasImg = true;
+      if (node.type.name === "image" || node.type.name === "youtube") {
+        hasMedia = true;
+      }
     });
 
-    if (isImg || hasImg) {
+    if (activeMediaType || hasMedia) {
       const parentEl =
         editor.view?.dom?.closest(".ProseMirror") || editor.view?.dom;
       const maxW = parentEl?.clientWidth || 700;
+      const minW = activeMediaType === "youtube" ? 160 : 80;
 
       let targetWidth: number | null = null;
       if (
@@ -291,21 +319,20 @@ export function EditorToolbar({
         else if (num <= 24) targetWidth = Math.round(maxW * 0.75);
         else if (num <= 32) targetWidth = Math.round(maxW * 0.9);
         else targetWidth = Math.round(maxW * 1.0);
+        targetWidth = Math.max(minW, Math.min(targetWidth, maxW));
       } else {
-        targetWidth = Math.min(num, maxW);
+        targetWidth = Math.max(minW, Math.min(num, maxW));
       }
 
-      if (isImg) {
+      if (activeMediaType) {
         editor
           .chain()
           .focus()
-          .updateAttributes("image", { width: targetWidth })
+          .updateAttributes(activeMediaType, { width: targetWidth })
           .run();
-      }
-
-      if (hasImg && !isImg) {
+      } else if (hasMedia) {
         editor.state.doc.nodesBetween(from, to, (node, pos) => {
-          if (node.type.name === "image") {
+          if (node.type.name === "image" || node.type.name === "youtube") {
             editor.commands.command(({ tr }) => {
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
@@ -318,7 +345,7 @@ export function EditorToolbar({
       }
     }
 
-    if (!isImg) {
+    if (!activeMediaType) {
       if (isNaN(num) || clean.toLowerCase() === "normal" || num === 16) {
         (editor.chain().focus() as any).unsetFontSize().run();
       } else {
@@ -436,6 +463,7 @@ export function EditorToolbar({
           createPortal(
             <div
               ref={popoverRef}
+              data-floating-editor-ui="true"
               style={{
                 position: "fixed",
                 top: `${popoverCoords.top}px`,

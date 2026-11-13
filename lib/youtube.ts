@@ -5,6 +5,66 @@ export interface ParsedYouTubeUrl {
   startSeconds?: number;
 }
 
+export type MediaAlign = "left" | "center" | "right";
+
+export interface YouTubeEmbedMeta {
+  width?: number | null;
+  align?: MediaAlign;
+}
+
+export function normalizeMediaAlign(raw?: string | null): MediaAlign {
+  if (raw === "center" || raw === "right") return raw;
+  return "left";
+}
+
+export function parseMediaWidth(raw?: unknown): number | null {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return Math.round(raw);
+  }
+  if (typeof raw === "string") {
+    const parsed = parseInt(raw, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+export function parseYouTubeEmbedMeta(meta?: string | null): YouTubeEmbedMeta {
+  if (!meta) return {};
+  const result: YouTubeEmbedMeta = {};
+  for (const part of meta.split(";")) {
+    const eqIndex = part.indexOf("=");
+    if (eqIndex === -1) continue;
+    const key = part.slice(0, eqIndex).trim().toLowerCase();
+    const val = part.slice(eqIndex + 1).trim();
+    if (!val) continue;
+    if (key === "width") {
+      const width = parseMediaWidth(val);
+      if (width) result.width = width;
+    } else if (key === "align") {
+      const align = normalizeMediaAlign(val);
+      if (align !== "left") result.align = align;
+    }
+  }
+  return result;
+}
+
+export function formatYouTubeEmbedMeta(
+  width?: number | null,
+  align?: string | null,
+): string {
+  const parts: string[] = [];
+  const validWidth = parseMediaWidth(width);
+  if (validWidth) {
+    parts.push(`width=${validWidth}`);
+  }
+  if (align === "center" || align === "right") {
+    parts.push(`align=${align}`);
+  }
+  return parts.join(";");
+}
+
 const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/;
 
 const YOUTUBE_HOSTS = new Set([
