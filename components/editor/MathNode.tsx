@@ -65,48 +65,134 @@ export function sanitizeLatex(raw: string): string {
   return s;
 }
 
+function createMathSpan(
+  doc: Document,
+  latex: string,
+  display: "yes" | "no",
+): HTMLSpanElement {
+  const span = doc.createElement("span");
+  span.setAttribute("data-type", "mathNode");
+  span.setAttribute("data-display", display);
+  span.setAttribute("data-latex", encodeURIComponent(sanitizeLatex(latex)));
+  return span;
+}
+
+function appendTextWithBreaks(
+  doc: Document,
+  frag: DocumentFragment,
+  text: string,
+) {
+  const parts = text.split("\n");
+  parts.forEach((part, idx) => {
+    if (idx > 0) {
+      frag.appendChild(doc.createElement("br"));
+    }
+    if (part.length > 0) {
+      frag.appendChild(doc.createTextNode(part));
+    }
+  });
+}
+
 /**
  * Transforms math delimiters in an HTML element tree into TipTap-compatible mathNode spans.
  * Used during Markdown parsing and clipboard pasting.
  */
 export function transformMathInElement(element: HTMLElement) {
-  if (typeof window === "undefined" || !element) return;
+  if (!element) return;
+  const doc = element.ownerDocument;
+  if (!doc) return;
 
-  // 1. Normalize multiline block formulas spanning across <br> or block containers
+  // 1. Normalize multiline block formulas spanning across <br> nodes without using innerHTML
   const blockContainers = element.querySelectorAll(
     "p, div, li, blockquote, dd",
   );
+  const blockMathRegex = /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g;
   for (const block of Array.from(blockContainers)) {
-    if (block.innerHTML.includes("$$") || block.innerHTML.includes("\\[")) {
-      const updated = block.innerHTML
-        .replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-          const clean = sanitizeLatex(
-            math.replace(/<br\s*\/?>/gi, "\n").trim(),
-          );
-          return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
-        })
-        .replace(/\\\[([\s\S]*?)\\\]/g, (_, math) => {
-          const clean = sanitizeLatex(
-            math.replace(/<br\s*\/?>/gi, "\n").trim(),
-          );
-          return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(clean)}"></span>`;
-        });
-      if (updated !== block.innerHTML) {
-        block.innerHTML = updated;
+    if (
+      block.closest("pre, code") ||
+      block.getAttribute("data-type") === "mathNode"
+    ) {
+      continue;
+    }
+
+    const children = Array.from(block.childNodes);
+    let i = 0;
+    while (i < children.length) {
+      // Collect contiguous runs of Text nodes and <br> elements
+      const run: ChildNode[] = [];
+      let hasBr = false;
+      while (i < children.length) {
+        const child = children[i];
+        if (child.nodeType === 3) {
+          run.push(child);
+          i++;
+        } else if (
+          child.nodeType === 1 &&
+          (child as HTMLElement).tagName.toLowerCase() === "br"
+        ) {
+          hasBr = true;
+          run.push(child);
+          i++;
+        } else {
+          break;
+        }
+      }
+
+      if (!hasBr || run.length === 0) {
+        if (run.length === 0) i++;
+        continue;
+      }
+
+      const combined = run
+        .map((n) => (n.nodeType === 3 ? n.nodeValue || "" : "\n"))
+        .join("");
+
+      if (!combined.includes("$$") && !combined.includes("\\[")) {
+        continue;
+      }
+
+      blockMathRegex.lastIndex = 0;
+      const frag = doc.createDocumentFragment();
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      let matchedAny = false;
+
+      while ((match = blockMathRegex.exec(combined)) !== null) {
+        matchedAny = true;
+        if (match.index > lastIndex) {
+          appendTextWithBreaks(doc, frag, combined.slice(lastIndex, match.index));
+        }
+        const latex = (match[1] ?? match[2] ?? "").trim();
+        frag.appendChild(createMathSpan(doc, latex, "yes"));
+        lastIndex = match.index + match[0].length;
+      }
+
+      if (matchedAny) {
+        if (lastIndex < combined.length) {
+          appendTextWithBreaks(doc, frag, combined.slice(lastIndex));
+        }
+        run[0].replaceWith(frag);
+        for (let j = 1; j < run.length; j++) {
+          run[j].remove();
+        }
       }
     }
   }
 
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+  // 2. Transform math delimiters in individual text nodes via pure DOM node construction
+  const walker = doc.createTreeWalker(element, 4 /* SHOW_TEXT */, {
     acceptNode(node) {
       const parent = node.parentElement;
       if (
         parent &&
-        ["CODE", "PRE", "SCRIPT", "STYLE", "TEXTAREA"].includes(parent.tagName)
+        (["CODE", "PRE", "SCRIPT", "STYLE", "TEXTAREA"].includes(
+          parent.tagName,
+        ) ||
+          parent.closest('[data-type="mathNode"], pre, code'))
       ) {
-        return NodeFilter.FILTER_REJECT;
+        return 2; // FILTER_REJECT
       }
-      return NodeFilter.FILTER_ACCEPT;
+      return 1; // FILTER_ACCEPT
     },
   });
 
@@ -117,43 +203,41 @@ export function transformMathInElement(element: HTMLElement) {
     current = walker.nextNode();
   }
 
-  const blockDollarRegex = /\$\$([\s\S]*?)\$\$/g;
-  const blockBracketRegex = /\\\[([\s\S]*?)\\\]/g;
-  const inlineDollarRegex = /(?<!\$)\$(?!\$)((?:[^$\\\n]|\\.)+?)\$/g;
-  const inlineBracketRegex = /\\\(([\s\S]*?)\\\)/g;
+  const mathRegex =
+    /\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|(?<!\$)\$(?!\$)((?:[^$\\\n]|\\.)+?)\$/g;
 
   for (const textNode of textNodes) {
     const text = textNode.nodeValue || "";
-    if (!text.includes("$") && !text.includes("\\[") && !text.includes("\\(")) {
+    if (
+      !text.includes("$") &&
+      !text.includes("\\[") &&
+      !text.includes("\\(")
+    ) {
       continue;
     }
 
-    let modified = text
-      .replace(blockDollarRegex, (_, l) => {
-        return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(
-          l.trim(),
-        )}"></span>`;
-      })
-      .replace(blockBracketRegex, (_, l) => {
-        return `<span data-type="mathNode" data-display="yes" data-latex="${encodeURIComponent(
-          l.trim(),
-        )}"></span>`;
-      })
-      .replace(inlineBracketRegex, (_, l) => {
-        return `<span data-type="mathNode" data-display="no" data-latex="${encodeURIComponent(
-          l.trim(),
-        )}"></span>`;
-      })
-      .replace(inlineDollarRegex, (_, l) => {
-        return `<span data-type="mathNode" data-display="no" data-latex="${encodeURIComponent(
-          l.trim(),
-        )}"></span>`;
-      });
+    mathRegex.lastIndex = 0;
+    const frag = doc.createDocumentFragment();
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    let matchedAny = false;
 
-    if (modified !== text) {
-      const span = document.createElement("span");
-      span.innerHTML = modified;
-      textNode.replaceWith(...Array.from(span.childNodes));
+    while ((match = mathRegex.exec(text)) !== null) {
+      matchedAny = true;
+      if (match.index > lastIndex) {
+        frag.appendChild(doc.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const isDisplay = match[1] !== undefined || match[2] !== undefined;
+      const rawLatex = (match[1] ?? match[2] ?? match[3] ?? match[4] ?? "").trim();
+      frag.appendChild(createMathSpan(doc, rawLatex, isDisplay ? "yes" : "no"));
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (matchedAny) {
+      if (lastIndex < text.length) {
+        frag.appendChild(doc.createTextNode(text.slice(lastIndex)));
+      }
+      textNode.replaceWith(frag);
     }
   }
 }

@@ -107,9 +107,18 @@ export default function HomePage() {
   }, []);
 
   const openSyllabusInEditor = (syllabusData: SyllabusData) => {
+    const result = saveSyllabus(syllabusData);
+    if (!result.saved) {
+      isProcessingPasteRef.current = false;
+      showToast(
+        result.error === "quota"
+          ? "Storage full: could not save syllabus. Delete unused files or export a .theseus backup."
+          : "Could not save syllabus to browser storage.",
+      );
+      return;
+    }
     setIsOpeningSyllabus(true);
-    const activeId = saveSyllabus(syllabusData);
-    setActiveSyllabusId(activeId);
+    setActiveSyllabusId(result.id);
     router.push("/edit");
   };
 

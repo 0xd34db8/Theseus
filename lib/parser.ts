@@ -1,5 +1,55 @@
-import { SyllabusData, SyllabusItem, TopicStatus } from "@/types/syllabus";
+import {
+  NoteComment,
+  SyllabusData,
+  SyllabusItem,
+  TopicNote,
+  TopicStatus,
+} from "@/types/syllabus";
 import { stripModulePrefix } from "./syllabusUtils";
+
+function normalizeImportedNote(
+  rawNote: unknown,
+  itemId: string,
+  itemTitle: string,
+): TopicNote | undefined {
+  if (!rawNote || typeof rawNote !== "object" || Array.isArray(rawNote)) {
+    return undefined;
+  }
+  const n = rawNote as Record<string, unknown>;
+  const content = typeof n.content === "string" ? n.content : "";
+
+  let subComments: NoteComment[] | undefined;
+  if (Array.isArray(n.subComments)) {
+    subComments = n.subComments
+      .filter(
+        (c): c is Record<string, unknown> =>
+          Boolean(c) &&
+          typeof c === "object" &&
+          !Array.isArray(c) &&
+          typeof (c as Record<string, unknown>).content === "string",
+      )
+      .map((c, idx) => ({
+        id:
+          typeof c.id === "string" && c.id.trim()
+            ? c.id
+            : `comment-${itemId}-${idx + 1}`,
+        author: typeof c.author === "string" ? c.author : "",
+        timestamp: typeof c.timestamp === "string" ? c.timestamp : "",
+        content: c.content as string,
+        ...(typeof c.imageUrl === "string" ? { imageUrl: c.imageUrl } : {}),
+      }));
+  }
+
+  return {
+    id: typeof n.id === "string" && n.id.trim() ? n.id : `note-${itemId}`,
+    title:
+      typeof n.title === "string" && n.title.trim() ? n.title : itemTitle,
+    content,
+    ...(typeof n.imageUrl === "string" ? { imageUrl: n.imageUrl } : {}),
+    ...(subComments !== undefined ? { subComments } : {}),
+    updatedAt: typeof n.updatedAt === "string" ? n.updatedAt : "",
+  };
+}
 
 /**
  * Parses raw unformatted or pasted text into a hierarchical syllabus structure
@@ -285,32 +335,40 @@ export function tryParseSyllabusJson(
       rawItems = parsed.data;
     }
 
-    jsonTitle =
-      parsed.courseTitle ||
-      parsed.fileName ||
-      parsed.title ||
-      parsed.name ||
-      parsed.courseName ||
-      parsed.course ||
-      parsed.subject ||
-      parsed.syllabus?.courseTitle ||
-      parsed.syllabus?.fileName ||
-      parsed.syllabus?.title ||
-      parsed.data?.courseTitle ||
-      parsed.data?.title ||
-      "";
+    const titleCandidates = [
+      parsed.courseTitle,
+      parsed.fileName,
+      parsed.title,
+      parsed.name,
+      parsed.courseName,
+      parsed.course,
+      parsed.subject,
+      parsed.syllabus?.courseTitle,
+      parsed.syllabus?.fileName,
+      parsed.syllabus?.title,
+      parsed.data?.courseTitle,
+      parsed.data?.title,
+    ];
+    const validTitle = titleCandidates.find(
+      (candidate): candidate is string =>
+        typeof candidate === "string" && candidate.trim().length > 0,
+    );
+    jsonTitle = validTitle || "";
   }
 
   if (!rawItems || rawItems.length === 0) return null;
 
+  const nonNullItems = rawItems.filter((item) => item !== null && item !== undefined);
+  if (nonNullItems.length === 0) return null;
+
   // Verify that it actually looks like syllabus items (at least one item has a non-empty title/name)
-  const isLikelySyllabus = rawItems.some((item) => getItemTitle(item).length > 0);
+  const isLikelySyllabus = nonNullItems.some((item) => getItemTitle(item).length > 0);
   if (!isLikelySyllabus) return null;
 
   let detectedTitle = jsonTitle.trim();
 
   // If JSON had no title, use fallbackTitle if it is not generic
-  if (!detectedTitle && fallbackTitle && fallbackTitle.trim()) {
+  if (!detectedTitle && typeof fallbackTitle === "string" && fallbackTitle.trim()) {
     const cleanFallback = fallbackTitle.trim();
     if (cleanFallback !== "New Syllabus" && cleanFallback !== "Imported Syllabus") {
       detectedTitle = cleanFallback;
@@ -318,8 +376,8 @@ export function tryParseSyllabusJson(
   }
 
   // If still no title and rawItems exist, derive from first item title
-  if (!detectedTitle && rawItems.length > 0) {
-    const firstTitle = getItemTitle(rawItems[0]);
+  if (!detectedTitle && nonNullItems.length > 0) {
+    const firstTitle = getItemTitle(nonNullItems[0]);
     if (firstTitle) {
       detectedTitle = stripModulePrefix(firstTitle);
     }
@@ -327,30 +385,37 @@ export function tryParseSyllabusJson(
 
   // Recursive normalizer to build full SyllabusItem nodes
   function normalizeNode(node: any, prefix: string, index: number): SyllabusItem {
+    const isObj = Boolean(node) && typeof node === "object" && !Array.isArray(node);
     const id =
-      node && typeof node === "object" && node.id && typeof node.id === "string"
+      isObj && typeof node.id === "string" && node.id.trim()
         ? node.id
         : `${prefix}-${index + 1}`;
     const rawTitle = getItemTitle(node);
     const title = rawTitle || `Topic ${index + 1}`;
     const status: TopicStatus =
-      node && typeof node === "object" && ["done", "partial", "barely", "untouched"].includes(node.status)
-        ? node.status
+      isObj &&
+      typeof node.status === "string" &&
+      ["done", "partial", "barely", "untouched"].includes(node.status)
+        ? (node.status as TopicStatus)
         : "untouched";
-    const hasNote = Boolean(node && typeof node === "object" && (node.hasNote || node.note));
+    const note = isObj ? normalizeImportedNote(node.note, id, title) : undefined;
+    const hasNote = Boolean(isObj && (node.hasNote === true || note !== undefined));
     const isExpanded =
-      node && typeof node === "object" && node.isExpanded !== undefined
-        ? Boolean(node.isExpanded)
-        : true;
+      isObj && node.isExpanded !== undefined ? Boolean(node.isExpanded) : true;
 
-    const rawChildren =
-      node && typeof node === "object"
-        ? node.children || node.subtopics || node.subSections || node.sections || node.items
-        : undefined;
+    const rawChildren = isObj
+      ? node.children || node.subtopics || node.subSections || node.sections || node.items
+      : undefined;
+
+    const validChildren = Array.isArray(rawChildren)
+      ? rawChildren.filter((child: any) => child !== null && child !== undefined)
+      : [];
 
     const children =
-      Array.isArray(rawChildren) && rawChildren.length > 0
-        ? rawChildren.map((child: any, cIdx: number) => normalizeNode(child, id, cIdx))
+      validChildren.length > 0
+        ? validChildren.map((child: any, cIdx: number) =>
+            normalizeNode(child, id, cIdx),
+          )
         : undefined;
 
     return {
@@ -358,13 +423,13 @@ export function tryParseSyllabusJson(
       title,
       status,
       hasNote,
-      note: node && typeof node === "object" ? node.note : undefined,
+      note,
       isExpanded,
       children,
     };
   }
 
-  const items = rawItems.map((item, idx) => normalizeNode(item, "u", idx));
+  const items = nonNullItems.map((item, idx) => normalizeNode(item, "u", idx));
   const finalTitle = detectedTitle.trim() || "Course Syllabus";
 
   return {
@@ -556,6 +621,13 @@ export function tolerantParseSyllabus(
     return { items: null, isValid };
   }
 
+  const validRawItems = rawItems.filter(
+    (it) => it !== null && it !== undefined && (typeof it === "string" || (typeof it === "object" && !Array.isArray(it))),
+  );
+  if (validRawItems.length === 0) {
+    return { items: null, isValid };
+  }
+
   // Build existing item lookup by ID, hierarchical path, and title
   const existingById = new Map<string, SyllabusItem>();
   const existingByPath = new Map<string, SyllabusItem>();
@@ -591,19 +663,20 @@ export function tolerantParseSyllabus(
     idx: number,
     parentPath: string = "",
   ): SyllabusItem {
+    const isObj = Boolean(node) && typeof node === "object" && !Array.isArray(node);
     const currentPath = parentPath ? `${parentPath}.${idx}` : `${idx}`;
     const rawTitle =
       typeof node === "string"
         ? node
-        : node && node.title
-          ? String(node.title)
+        : isObj && typeof node.title === "string"
+          ? node.title
           : `Topic ${idx + 1}`;
     const title = rawTitle.trim() || `Topic ${idx + 1}`;
     const cleanTitle = title.toLowerCase();
 
     // 1. Direct ID match
     let matched: SyllabusItem | null = null;
-    if (node && node.id && typeof node.id === "string" && existingById.has(node.id) && !usedIds.has(node.id)) {
+    if (isObj && typeof node.id === "string" && existingById.has(node.id) && !usedIds.has(node.id)) {
       matched = existingById.get(node.id)!;
     }
 
@@ -612,7 +685,7 @@ export function tolerantParseSyllabus(
       const candidateByPath = existingByPath.get(currentPath);
       if (candidateByPath && !usedIds.has(candidateByPath.id)) {
         // Path match: either same title or in-place topic rename at same structural position
-        if (candidateByPath.title.trim().toLowerCase() === cleanTitle || !node.id) {
+        if (candidateByPath.title.trim().toLowerCase() === cleanTitle || !(isObj && node.id)) {
           matched = candidateByPath;
         }
       }
@@ -646,35 +719,49 @@ export function tolerantParseSyllabus(
     const id =
       matched
         ? matched.id
-        : node && node.id && typeof node.id === "string" && !usedIds.has(node.id)
+        : isObj && typeof node.id === "string" && !usedIds.has(node.id)
           ? (usedIds.add(node.id), node.id)
           : `${prefix}-${Date.now()}-${idx}`;
 
     const status: TopicStatus =
-      node && ["done", "partial", "barely", "untouched"].includes(node.status)
-        ? node.status
+      isObj &&
+      typeof node.status === "string" &&
+      ["done", "partial", "barely", "untouched"].includes(node.status)
+        ? (node.status as TopicStatus)
         : matched
           ? matched.status
           : "untouched";
 
-    const note =
-      node && node.note ? node.note : matched ? matched.note : undefined;
+    const validatedNodeNote = isObj
+      ? normalizeImportedNote(node.note, id, title)
+      : undefined;
+    const note = validatedNodeNote ?? (matched ? matched.note : undefined);
 
     const hasNote = Boolean(
-      (node && (node.hasNote || node.note)) ||
+      (isObj && (node.hasNote === true || validatedNodeNote !== undefined)) ||
         (matched && (matched.hasNote || matched.note)),
     );
 
     const isExpanded =
-      node && node.isExpanded !== undefined
+      isObj && node.isExpanded !== undefined
         ? Boolean(node.isExpanded)
         : matched
           ? matched.isExpanded
           : true;
 
+    const rawChildren =
+      isObj && Array.isArray(node.children)
+        ? node.children.filter(
+            (c: any) =>
+              c !== null &&
+              c !== undefined &&
+              (typeof c === "string" || (typeof c === "object" && !Array.isArray(c))),
+          )
+        : [];
+
     const children =
-      Array.isArray(node.children) && node.children.length > 0
-        ? node.children.map((c: any, cIdx: number) =>
+      rawChildren.length > 0
+        ? rawChildren.map((c: any, cIdx: number) =>
             normalizeItem(c, id, cIdx, currentPath),
           )
         : undefined;
@@ -690,7 +777,7 @@ export function tolerantParseSyllabus(
     };
   }
 
-  const items = rawItems.map((it, idx) => normalizeItem(it, "u", idx, ""));
+  const items = validRawItems.map((it, idx) => normalizeItem(it, "u", idx, ""));
 
   let detectedCourseTitle: string | undefined = undefined;
   if (!Array.isArray(rawData) && rawData && typeof rawData === "object") {

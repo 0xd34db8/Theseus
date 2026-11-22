@@ -54,15 +54,38 @@ export function getAIConfig(): AIConfig {
   };
 }
 
-export function saveAIConfig(config: AIConfig): void {
-  if (typeof window === "undefined") return;
+export interface SaveSyllabusResult {
+  id: string;
+  saved: boolean;
+  error?: "quota" | "storage";
+}
+
+function isQuotaExceededError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { name?: string; code?: number };
+  return (
+    e.name === "QuotaExceededError" ||
+    e.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    e.code === 22 ||
+    e.code === 1014
+  );
+}
+
+export function saveAIConfig(config: AIConfig): boolean {
+  if (typeof window === "undefined") return false;
   const cleanConfig: AIConfig = {
     ...config,
     apiKey: config.apiKey.trim(),
     model: (config.model || getDefaultModelForProvider(config.provider)).trim(),
     baseURL: config.baseURL?.trim(),
   };
-  localStorage.setItem(AI_CONFIG_STORAGE, JSON.stringify(cleanConfig));
+  try {
+    localStorage.setItem(AI_CONFIG_STORAGE, JSON.stringify(cleanConfig));
+    return true;
+  } catch (err) {
+    console.error("Failed to save AI config to localStorage:", err);
+    return false;
+  }
 }
 
 export function getApiKey(): string {
@@ -70,11 +93,11 @@ export function getApiKey(): string {
   return getAIConfig().apiKey;
 }
 
-export function saveApiKey(key: string): void {
-  if (typeof window === "undefined") return;
+export function saveApiKey(key: string): boolean {
+  if (typeof window === "undefined") return false;
   const trimmed = key.trim();
   const provider = detectProviderFromKey(trimmed);
-  saveAIConfig({
+  return saveAIConfig({
     provider,
     apiKey: trimmed,
     model: getDefaultModelForProvider(provider),
@@ -83,15 +106,29 @@ export function saveApiKey(key: string): void {
 
 export function removeApiKey(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(AI_CONFIG_STORAGE);
+  try {
+    localStorage.removeItem(AI_CONFIG_STORAGE);
+  } catch (err) {
+    console.error("Failed to remove AI config from localStorage:", err);
+  }
 }
 
 function hasAnyNotesOrContent(syllabus: SyllabusData): boolean {
-  if (!syllabus || !syllabus.items) return false;
+  if (!syllabus || !Array.isArray(syllabus.items)) return false;
   function checkItems(items: any[]): boolean {
     for (const item of items) {
-      if (item.hasNote || (item.note && item.note.content?.trim())) return true;
-      if (item.children && checkItems(item.children)) return true;
+      if (!item || typeof item !== "object") continue;
+      if (
+        item.hasNote ||
+        (item.note &&
+          typeof item.note.content === "string" &&
+          item.note.content.trim())
+      ) {
+        return true;
+      }
+      if (Array.isArray(item.children) && checkItems(item.children)) {
+        return true;
+      }
     }
     return false;
   }
@@ -157,7 +194,11 @@ export function getSavedSyllabi(includeDrafts: boolean = false): SyllabusData[] 
     }
 
     if (deduplicated.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(deduplicated));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(deduplicated));
+      } catch (writeErr) {
+        console.warn("Failed to persist deduplicated syllabi list:", writeErr);
+      }
     }
     if (includeDrafts) {
       return deduplicated;
@@ -175,16 +216,19 @@ export function cleanupUnusedDrafts(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
-    const parsed: SyllabusData[] = JSON.parse(raw);
-    const cleaned = parsed.filter(shouldKeepSyllabus);
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    const cleaned = (parsed as SyllabusData[]).filter(shouldKeepSyllabus);
     if (cleaned.length !== parsed.length) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
     }
   } catch {}
 }
 
-export function saveSyllabus(syllabus: SyllabusData): string {
-  if (typeof window === "undefined") return syllabus.id;
+export function saveSyllabus(syllabus: SyllabusData): SaveSyllabusResult {
+  if (typeof window === "undefined") {
+    return { id: syllabus.id, saved: true };
+  }
   const list = getSavedSyllabi(true);
 
   const existingIdx = list.findIndex((s) => s.id === syllabus.id);
@@ -203,36 +247,55 @@ export function saveSyllabus(syllabus: SyllabusData): string {
   } else {
     updatedList = [updatedItem, ...list];
   }
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
     localStorage.setItem(ACTIVE_ID_KEY, targetId);
+    return { id: targetId, saved: true };
   } catch (err) {
-    console.warn("Failed to write syllabi to localStorage (quota may be exceeded):", err);
-    try {
-      // Emergency recovery: attempt to save only the active syllabus
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([updatedItem]));
-      localStorage.setItem(ACTIVE_ID_KEY, targetId);
-    } catch (criticalErr) {
-      console.error("Critical: localStorage quota completely exhausted.", criticalErr);
-    }
+    const isQuota = isQuotaExceededError(err);
+    console.error(
+      isQuota
+        ? "Failed to write syllabi to localStorage: quota exceeded."
+        : "Failed to write syllabi to localStorage:",
+      err,
+    );
+    return {
+      id: targetId,
+      saved: false,
+      error: isQuota ? "quota" : "storage",
+    };
   }
-  return targetId;
 }
 
 export function getActiveSyllabusId(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACTIVE_ID_KEY) || null;
+  try {
+    return localStorage.getItem(ACTIVE_ID_KEY) || null;
+  } catch {
+    return null;
+  }
 }
 
-export function setActiveSyllabusId(id: string) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ACTIVE_ID_KEY, id);
+export function setActiveSyllabusId(id: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    localStorage.setItem(ACTIVE_ID_KEY, id);
+    return true;
+  } catch (err) {
+    console.error("Failed to persist active syllabus ID:", err);
+    return false;
+  }
 }
 
 export function deleteSyllabus(id: string): SyllabusData[] {
   if (typeof window === "undefined") return [];
   const list = getSavedSyllabi().filter((s) => s.id !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.error("Failed to update syllabi list after delete:", err);
+  }
   return list;
 }
 
@@ -251,7 +314,11 @@ export function restoreSyllabus(
       ? Math.min(Math.max(0, atIndex), updatedList.length)
       : 0;
   updatedList.splice(targetIndex, 0, syllabus);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedList));
+  } catch (err) {
+    console.error("Failed to restore syllabus to localStorage:", err);
+  }
   return updatedList;
 }
 

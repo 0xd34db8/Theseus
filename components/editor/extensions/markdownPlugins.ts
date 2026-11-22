@@ -3,6 +3,166 @@ import markdownItFootnote from "markdown-it-footnote";
 // @ts-ignore
 import markdownItDeflist from "markdown-it-deflist";
 import { sanitizeLatex } from "../MathNode";
+import { parseYouTubeUrl } from "@/lib/youtube";
+
+const DANGEROUS_TAGS = new Set([
+  "script",
+  "style",
+  "noscript",
+  "object",
+  "embed",
+  "applet",
+  "base",
+  "link",
+  "meta",
+  "template",
+  "svg",
+  "form",
+  "textarea",
+  "select",
+  "button",
+  "audio",
+  "video",
+  "source",
+  "track",
+  "portal",
+  "frame",
+  "frameset",
+]);
+
+const SAFE_DATA_IMAGE_REGEX =
+  /^data:image\/(?:png|jpe?g|gif|webp|bmp|avif);base64,[a-z0-9+/=\s]+$/i;
+
+function isSafeUrl(raw: string, allowDataImage: boolean): boolean {
+  const cleaned = raw.replace(/[\u0000-\u0020]+/g, "").trim();
+  if (!cleaned) return false;
+
+  if (
+    cleaned.startsWith("#") ||
+    cleaned.startsWith("/") ||
+    cleaned.startsWith("./") ||
+    cleaned.startsWith("../")
+  ) {
+    return true;
+  }
+
+  if (allowDataImage && SAFE_DATA_IMAGE_REGEX.test(cleaned)) {
+    return true;
+  }
+
+  const schemeMatch = cleaned.match(/^([a-z][a-z0-9+.-]*):/i);
+  if (!schemeMatch) {
+    return true;
+  }
+
+  const scheme = schemeMatch[1].toLowerCase();
+  if (allowDataImage) {
+    return scheme === "http" || scheme === "https";
+  }
+  return scheme === "http" || scheme === "https" || scheme === "mailto";
+}
+
+function sanitizeInlineStyle(rawStyle: string): string {
+  const safeDecls: string[] = [];
+  for (const part of rawStyle.split(";")) {
+    const colonIdx = part.indexOf(":");
+    if (colonIdx === -1) continue;
+    const prop = part.slice(0, colonIdx).trim().toLowerCase();
+    const val = part.slice(colonIdx + 1).trim();
+    if (!val || /url\s*\(|expression\s*\(|javascript:/i.test(val)) continue;
+
+    if (
+      prop === "text-align" &&
+      /^(left|center|right|justify|start|end)$/i.test(val)
+    ) {
+      safeDecls.push(`text-align: ${val.toLowerCase()}`);
+    } else if (
+      prop === "font-size" &&
+      /^\d+(?:\.\d+)?(?:px|em|rem|%)$/i.test(val)
+    ) {
+      safeDecls.push(`font-size: ${val.toLowerCase()}`);
+    } else if (prop === "width" && /^\d+(?:\.\d+)?(?:px|%)$/i.test(val)) {
+      safeDecls.push(`width: ${val.toLowerCase()}`);
+    }
+  }
+  return safeDecls.join("; ");
+}
+
+/**
+ * Sanitizes an inert parsed DOM subtree before TipTap converts it to ProseMirror nodes.
+ * Preserves valid formatting tags (u, mark, span font-size, aligned blocks, resized img, YouTube embeds, task checkboxes)
+ * while stripping executable elements, event handler attributes, and unsafe URLs/styles.
+ */
+export function sanitizeParsedDOM(root: HTMLElement): void {
+  if (!root) return;
+
+  const elements = Array.from(root.querySelectorAll("*"));
+  for (const el of elements) {
+    const tag = el.tagName.toLowerCase();
+
+    if (DANGEROUS_TAGS.has(tag)) {
+      el.remove();
+      continue;
+    }
+
+    if (tag === "iframe") {
+      el.removeAttribute("srcdoc");
+      const src = el.getAttribute("src") || "";
+      if (!parseYouTubeUrl(src)) {
+        el.remove();
+        continue;
+      }
+    }
+
+    if (tag === "input") {
+      const inputType = (el.getAttribute("type") || "").toLowerCase();
+      if (inputType !== "checkbox") {
+        el.remove();
+        continue;
+      }
+    }
+
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      const val = attr.value;
+
+      if (
+        name.startsWith("on") ||
+        name === "srcdoc" ||
+        name === "formaction" ||
+        name === "xlink:href" ||
+        name === "xmlns"
+      ) {
+        el.removeAttribute(attr.name);
+        continue;
+      }
+
+      if (name === "href" || name === "action") {
+        if (!isSafeUrl(val, false)) {
+          el.removeAttribute(attr.name);
+        }
+        continue;
+      }
+
+      if (name === "src" || name === "data-src") {
+        const allowDataImage = tag === "img";
+        if (!isSafeUrl(val, allowDataImage)) {
+          el.removeAttribute(attr.name);
+        }
+        continue;
+      }
+
+      if (name === "style") {
+        const cleanedStyle = sanitizeInlineStyle(val);
+        if (cleanedStyle) {
+          el.setAttribute("style", cleanedStyle);
+        } else {
+          el.removeAttribute("style");
+        }
+      }
+    }
+  }
+}
 
 function markdownItMath(md: any) {
   function mathBlock(
@@ -173,7 +333,12 @@ export const MarkdownPlugins = Extension.create({
             md.use(markdownItMath);
           },
           updateDOM(element: HTMLElement) {
-            if (typeof window === "undefined" || !element) return;
+            if (!element) return;
+            const doc = element.ownerDocument;
+            if (!doc) return;
+
+            // 0. Sanitize raw HTML in the inert DOMParser tree before any transformations
+            sanitizeParsedDOM(element);
 
             // 1. Definition Lists: strip any trailing backslashes from <dt>
             element
@@ -198,11 +363,23 @@ export const MarkdownPlugins = Extension.create({
                 item
                   .querySelectorAll(".footnote-backref")
                   .forEach((br) => br.remove());
-                const div = document.createElement("div");
+                const div = doc.createElement("div");
                 div.setAttribute("data-type", "footnoteDefinition");
                 div.setAttribute("data-label", label);
-                const p = item.querySelector("p");
-                div.innerHTML = (p ? p.innerHTML : item.innerHTML).trim();
+                const source = item.querySelector("p") || item;
+                while (source.firstChild) {
+                  div.appendChild(source.firstChild);
+                }
+                if (
+                  div.firstChild?.nodeType === 3 &&
+                  div.firstChild.nodeValue
+                ) {
+                  div.firstChild.nodeValue =
+                    div.firstChild.nodeValue.trimStart();
+                }
+                if (div.lastChild?.nodeType === 3 && div.lastChild.nodeValue) {
+                  div.lastChild.nodeValue = div.lastChild.nodeValue.trimEnd();
+                }
                 defNodes.push(div);
               });
               footnotesSection.replaceWith(...defNodes);
@@ -216,7 +393,7 @@ export const MarkdownPlugins = Extension.create({
               const link = sup.querySelector("a");
               const text = (link ? link.textContent : sup.textContent) || "1";
               const label = text.replace(/[\[\]\^]/g, "").trim() || "1";
-              const span = document.createElement("span");
+              const span = doc.createElement("span");
               span.setAttribute("data-type", "footnoteReference");
               span.setAttribute("data-label", label);
               span.textContent = `[${label}]`;
@@ -225,23 +402,37 @@ export const MarkdownPlugins = Extension.create({
 
             // 4. Raw unparsed footnote definitions in paragraphs: <p>[^1]: Content</p>
             element.querySelectorAll("p").forEach((p) => {
-              const match = p.innerHTML.match(
-                /^\s*\[\^([^\]\s]+)\]:\s*([\s\S]+)$/,
-              );
-              if (match) {
-                const div = document.createElement("div");
-                div.setAttribute("data-type", "footnoteDefinition");
-                div.setAttribute("data-label", match[1]);
-                div.innerHTML = match[2].trim();
-                p.replaceWith(div);
+              const firstNode = p.firstChild;
+              if (!firstNode || firstNode.nodeType !== 3) return;
+              const leadingText = firstNode.nodeValue || "";
+              const match = leadingText.match(/^\s*\[\^([^\]\s]+)\]:\s*/);
+              if (!match) return;
+
+              const remainder = leadingText.slice(match[0].length);
+              const hasFollowingContent =
+                remainder.trim().length > 0 || p.childNodes.length > 1;
+              if (!hasFollowingContent) return;
+
+              const div = doc.createElement("div");
+              div.setAttribute("data-type", "footnoteDefinition");
+              div.setAttribute("data-label", match[1]);
+              if (remainder) {
+                div.appendChild(doc.createTextNode(remainder));
               }
+              let next = firstNode.nextSibling;
+              while (next) {
+                const following = next.nextSibling;
+                div.appendChild(next);
+                next = following;
+              }
+              if (div.lastChild?.nodeType === 3 && div.lastChild.nodeValue) {
+                div.lastChild.nodeValue = div.lastChild.nodeValue.trimEnd();
+              }
+              p.replaceWith(div);
             });
 
             // 5. Raw unparsed footnote references in text nodes: [^1]
-            const walker = document.createTreeWalker(
-              element,
-              NodeFilter.SHOW_TEXT,
-            );
+            const walker = doc.createTreeWalker(element, 4 /* SHOW_TEXT */);
             let textNode: Node | null;
             const textNodesToFix: ChildNode[] = [];
             while ((textNode = walker.nextNode())) {
@@ -261,15 +452,29 @@ export const MarkdownPlugins = Extension.create({
             }
             for (const tn of textNodesToFix) {
               const val = tn.nodeValue || "";
-              const replaced = val.replace(
-                /\[\^([^\]\s]+)\]/g,
-                (_, label) =>
-                  `<span data-type="footnoteReference" data-label="${label}">[${label}]</span>`,
-              );
-              if (replaced !== val) {
-                const temp = document.createElement("span");
-                temp.innerHTML = replaced;
-                tn.replaceWith(...Array.from(temp.childNodes));
+              const regex = /\[\^([^\]\s]+)\]/g;
+              const frag = doc.createDocumentFragment();
+              let lastIndex = 0;
+              let match: RegExpExecArray | null;
+              while ((match = regex.exec(val)) !== null) {
+                if (match.index > lastIndex) {
+                  frag.appendChild(
+                    doc.createTextNode(val.slice(lastIndex, match.index)),
+                  );
+                }
+                const label = match[1];
+                const span = doc.createElement("span");
+                span.setAttribute("data-type", "footnoteReference");
+                span.setAttribute("data-label", label);
+                span.textContent = `[${label}]`;
+                frag.appendChild(span);
+                lastIndex = match.index + match[0].length;
+              }
+              if (lastIndex > 0) {
+                if (lastIndex < val.length) {
+                  frag.appendChild(doc.createTextNode(val.slice(lastIndex)));
+                }
+                tn.replaceWith(frag);
               }
             }
           },

@@ -5,6 +5,7 @@ import {
   getDefaultModelForProvider,
   detectProviderFromKey,
 } from "./storage";
+import { tryParseSyllabusJson } from "./parser";
 
 function resolveConfig(configOrKey?: string | AIConfig): AIConfig {
   const saved = getAIConfig();
@@ -253,33 +254,64 @@ interface FormatSyllabusOptions {
 }
 
 interface RawAiItem {
-  title: string;
-  children?: RawAiItem[];
+  title?: unknown;
+  name?: unknown;
+  topic?: unknown;
+  unit?: unknown;
+  module?: unknown;
+  label?: unknown;
+  text?: unknown;
+  children?: unknown;
 }
 
-interface RawAiResponse {
-  courseTitle?: string;
-  items: RawAiItem[];
-}
-
-function normalizeItems(
-  rawList: RawAiItem[],
+export function normalizeItems(
+  rawList: unknown[],
   prefix = "item",
 ): SyllabusItem[] {
-  return rawList.map((item, idx) => {
-    const id = `${prefix}-${idx + 1}`;
-    const hasChildren =
-      Array.isArray(item.children) && item.children.length > 0;
+  if (!Array.isArray(rawList)) return [];
 
-    return {
+  const result: SyllabusItem[] = [];
+  rawList.forEach((rawItem, idx) => {
+    if (rawItem === null || rawItem === undefined) return;
+
+    let candidateTitle: unknown = "";
+    let rawChildren: unknown = undefined;
+
+    if (typeof rawItem === "string") {
+      candidateTitle = rawItem;
+    } else if (typeof rawItem === "object" && !Array.isArray(rawItem)) {
+      const item = rawItem as RawAiItem;
+      candidateTitle =
+        item.title ??
+        item.name ??
+        item.topic ??
+        item.unit ??
+        item.module ??
+        item.label ??
+        item.text;
+      rawChildren = item.children;
+    }
+
+    const title =
+      typeof candidateTitle === "string" ? candidateTitle.trim() : "";
+    if (!title) return;
+
+    const id = `${prefix}-${result.length + 1}`;
+    const children = Array.isArray(rawChildren)
+      ? normalizeItems(rawChildren, id)
+      : [];
+
+    result.push({
       id,
-      title: item.title.trim(),
+      title,
       status: "untouched" as const,
       hasNote: false,
       isExpanded: true,
-      children: hasChildren ? normalizeItems(item.children!, id) : undefined,
-    };
+      children: children.length > 0 ? children : undefined,
+    });
   });
+
+  return result;
 }
 
 const SYLLABUS_PARSER_BASE_RULES = `**You are an expert curriculum parser for the Theseus study application.**
@@ -473,25 +505,17 @@ export async function formatSyllabusWithAI(
     configOrKey,
   );
 
-  let parsed: RawAiResponse;
-  try {
-    parsed = JSON.parse(rawJson);
-  } catch {
-    const cleaned = rawJson
-      .replace(/^```json\s*/i, "")
-      .replace(/```\s*$/, "")
-      .trim();
-    parsed = JSON.parse(cleaned);
+  const parsedSyllabus = tryParseSyllabusJson(rawJson, options.preferredTitle);
+  if (!parsedSyllabus) {
+    throw new Error(
+      "AI returned an unrecognized syllabus format. Please try again.",
+    );
   }
 
-  const title =
-    options.preferredTitle?.trim() ||
-    parsed.courseTitle?.trim() ||
-    "Curriculum Syllabus";
-
+  const normalizedItems = normalizeItems(parsedSyllabus.items, "u");
   const items =
-    Array.isArray(parsed.items) && parsed.items.length > 0
-      ? normalizeItems(parsed.items, "u")
+    normalizedItems.length > 0
+      ? normalizedItems
       : [
           {
             id: "u-1",
@@ -501,6 +525,14 @@ export async function formatSyllabusWithAI(
             isExpanded: true,
           },
         ];
+
+  const cleanPreferred = options.preferredTitle?.trim();
+  const title =
+    (cleanPreferred &&
+    cleanPreferred !== "New Syllabus" &&
+    cleanPreferred !== "Imported Syllabus"
+      ? cleanPreferred
+      : parsedSyllabus.fileName?.trim()) || "Curriculum Syllabus";
 
   return {
     id: `syllabus-${Date.now()}`,

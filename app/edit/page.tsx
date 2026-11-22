@@ -6,7 +6,7 @@ import { SyllabusTree } from "@/components/editor/SyllabusTree";
 import { NoteEditor } from "@/components/editor/NoteEditor";
 import { EditorFooter } from "@/components/editor/EditorFooter";
 import { ApiKeyModal } from "@/components/modals/ApiKeyModal";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, AlertCircle, X } from "lucide-react";
 import {
   getSavedSyllabi,
   saveSyllabus,
@@ -52,6 +52,21 @@ export default function EditPage() {
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState<boolean>(false);
   const [mobileTab, setMobileTab] = useState<"tree" | "editor">("tree");
   const [activePanel, setActivePanel] = useState<"tree" | "editor">("tree");
+  const [storageError, setStorageError] = useState<string | null>(null);
+
+  const persistSyllabus = useCallback((updated: SyllabusData) => {
+    const result = saveSyllabus(updated);
+    if (!result.saved) {
+      const msg =
+        result.error === "quota"
+          ? "Storage full: changes were not saved locally. Export a .theseus backup or remove large images."
+          : "Changes could not be saved to browser storage. Export a .theseus backup to avoid losing work.";
+      queueMicrotask(() => setStorageError(msg));
+    } else {
+      queueMicrotask(() => setStorageError((prev) => (prev ? null : prev)));
+    }
+    return result;
+  }, []);
 
   const {
     treeWidth,
@@ -63,14 +78,17 @@ export default function EditPage() {
     nudgeWidth,
   } = useResizablePane();
 
-  const applyRestoredItems = useCallback((restoredItems: SyllabusItem[]) => {
-    setSyllabus((prev) => {
-      const updated = { ...prev, isDraft: false, items: restoredItems };
-      syllabusRef.current = updated;
-      saveSyllabus(updated);
-      return updated;
-    });
-  }, []);
+  const applyRestoredItems = useCallback(
+    (restoredItems: SyllabusItem[]) => {
+      setSyllabus((prev) => {
+        const updated = { ...prev, isDraft: false, items: restoredItems };
+        syllabusRef.current = updated;
+        persistSyllabus(updated);
+        return updated;
+      });
+    },
+    [persistSyllabus],
+  );
 
   const {
     canUndo,
@@ -262,7 +280,7 @@ export default function EditPage() {
         })),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -280,32 +298,41 @@ export default function EditPage() {
         })),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
 
   // Save note for topic
-  const handleSaveNote = useCallback((topicId: string, note: TopicNote) => {
-    const current = syllabusRef.current;
-    const updated = {
-      ...current,
-      isDraft: false,
-      items: updateItemInTree(current.items, topicId, (item) => ({
-        ...item,
-        hasNote: true,
-        note: {
-          ...item.note,
-          ...note,
-          content: note.content !== undefined ? note.content : (item.note?.content || ""),
-          subComments: note.subComments !== undefined ? note.subComments : item.note?.subComments,
-        },
-      })),
-    };
-    syllabusRef.current = updated;
-    setSyllabus(updated);
-    saveSyllabus(updated);
-  }, []);
+  const handleSaveNote = useCallback(
+    (topicId: string, note: TopicNote) => {
+      const current = syllabusRef.current;
+      const updated = {
+        ...current,
+        isDraft: false,
+        items: updateItemInTree(current.items, topicId, (item) => ({
+          ...item,
+          hasNote: true,
+          note: {
+            ...item.note,
+            ...note,
+            content:
+              note.content !== undefined
+                ? note.content
+                : item.note?.content || "",
+            subComments:
+              note.subComments !== undefined
+                ? note.subComments
+                : item.note?.subComments,
+          },
+        })),
+      };
+      syllabusRef.current = updated;
+      setSyllabus(updated);
+      persistSyllabus(updated);
+    },
+    [persistSyllabus],
+  );
 
   // Toggle note existence
   const handleToggleNote = (itemId: string) => {
@@ -328,7 +355,7 @@ export default function EditPage() {
         }),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -337,7 +364,7 @@ export default function EditPage() {
     setSyllabus((prev) => {
       const updated = { ...prev, isDraft: false, fileName: name };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -351,7 +378,7 @@ export default function EditPage() {
         items: deleteItemFromTree(prev.items, itemId),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
     if (selectedTopicId === itemId) {
@@ -374,7 +401,7 @@ export default function EditPage() {
         items: addItemToTree(prev.items, parentId, newItem),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -394,7 +421,7 @@ export default function EditPage() {
         })),
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -415,7 +442,7 @@ export default function EditPage() {
         items: newItems,
       };
       syllabusRef.current = updated;
-      saveSyllabus(updated);
+      persistSyllabus(updated);
       return updated;
     });
   };
@@ -442,6 +469,36 @@ export default function EditPage() {
         apiKeyConfigured={Boolean(apiKey)}
         onHomeClick={() => activeEditorFlushRef.current?.()}
       />
+
+      {/* Storage Error Banner */}
+      {storageError && (
+        <div
+          role="alert"
+          className="mx-3 sm:mx-4 md:mx-6 mt-1 px-3.5 py-2 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-3 text-xs text-red-500 shrink-0"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{storageError}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleExport}
+              className="px-2.5 py-1 rounded-md border border-red-500/30 hover:bg-red-500/10 text-red-500 font-medium transition-colors cursor-pointer"
+            >
+              Export .theseus
+            </button>
+            <button
+              type="button"
+              onClick={() => setStorageError(null)}
+              className="p-1 text-red-500 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
+              aria-label="Dismiss storage warning"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content Area with Split Panes taking full screen */}
       <div
