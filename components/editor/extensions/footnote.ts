@@ -31,6 +31,9 @@ export const FootnoteReference = TiptapNode.create({
         tag: 'span[data-type="footnoteReference"]',
       },
       {
+        tag: 'sup[data-type="footnoteReference"]',
+      },
+      {
         tag: "sup.footnote-ref",
       },
       {

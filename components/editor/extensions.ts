@@ -1,6 +1,5 @@
 import StarterKit from "@tiptap/starter-kit";
 import Superscript from "@tiptap/extension-superscript";
-import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -24,6 +23,9 @@ import {
   SearchHighlightPluginKey,
 } from "./extensions/searchHighlight";
 import {
+  CustomParagraph,
+  CustomHeading,
+  CustomTable,
   CustomCodeBlock,
   CustomTaskList,
   CustomTaskItem,
@@ -38,7 +40,7 @@ export {
   MathNode,
   YoutubeNode,
   Superscript,
-  Table,
+  CustomTable as Table,
   TableRow,
   TableHeader,
   TableCell,
@@ -50,6 +52,9 @@ export {
   MarkdownPlugins,
   SearchHighlight,
   SearchHighlightPluginKey,
+  CustomParagraph,
+  CustomHeading,
+  CustomTable,
   CustomCodeBlock,
   CustomTaskList,
   CustomTaskItem,
@@ -88,9 +93,8 @@ export function createTipTapExtensions(
       link: false,
       underline: false,
       codeBlock: false,
-      heading: {
-        levels: options?.headingLevels ?? [1, 2, 3, 4, 5, 6],
-      },
+      paragraph: false,
+      heading: false,
       bulletList: {
         keepMarks: true,
         keepAttributes: false,
@@ -99,6 +103,10 @@ export function createTipTapExtensions(
         keepMarks: true,
         keepAttributes: false,
       },
+    }),
+    CustomParagraph,
+    CustomHeading.configure({
+      levels: options?.headingLevels ?? [1, 2, 3, 4, 5, 6],
     }),
     CustomCodeBlock,
     FootnoteReference,
@@ -112,7 +120,7 @@ export function createTipTapExtensions(
     CustomTaskItem.configure({
       nested: true,
     }),
-    Table.configure({
+    CustomTable.configure({
       resizable: true,
       HTMLAttributes: {
         class: "theseus-editor-table",

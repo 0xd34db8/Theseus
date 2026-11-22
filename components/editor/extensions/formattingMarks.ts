@@ -4,11 +4,178 @@ import Highlight from "@tiptap/extension-highlight";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { Extension, Mark, mergeAttributes } from "@tiptap/core";
+import Paragraph from "@tiptap/extension-paragraph";
+import Heading from "@tiptap/extension-heading";
+import { Table } from "@tiptap/extension-table";
+import {
+  Extension,
+  Mark,
+  getHTMLFromFragment,
+  mergeAttributes,
+} from "@tiptap/core";
+import { Fragment } from "@tiptap/pm/model";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { ResizableImage } from "../ResizableImage";
 import { lowlight } from "../lowlight";
 import { CodeBlockComponent } from "../CodeBlockComponent";
+
+function escapeHtmlAttr(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function getChildNodes(node: any): any[] {
+  const children: any[] = [];
+  node?.forEach?.((child: any) => children.push(child));
+  return children;
+}
+
+function hasCellSpan(cell: any): boolean {
+  return (cell?.attrs?.colspan ?? 1) > 1 || (cell?.attrs?.rowspan ?? 1) > 1;
+}
+
+function isMarkdownSerializableTable(node: any): boolean {
+  const rows = getChildNodes(node);
+  if (rows.length === 0) return false;
+  const firstRow = rows[0];
+  const bodyRows = rows.slice(1);
+
+  if (
+    getChildNodes(firstRow).some(
+      (cell) =>
+        cell.type.name !== "tableHeader" ||
+        hasCellSpan(cell) ||
+        cell.childCount > 1,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    bodyRows.some((row) =>
+      getChildNodes(row).some(
+        (cell) =>
+          cell.type.name === "tableHeader" ||
+          hasCellSpan(cell) ||
+          cell.childCount > 1,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Custom Paragraph extension preserving non-default textAlign via HTML serialization.
+ */
+export const CustomParagraph = Paragraph.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: any, node: any) {
+          const align = node.attrs?.textAlign;
+          if (align && align !== "left") {
+            const html = getHTMLFromFragment(
+              Fragment.from(node),
+              node.type.schema,
+            );
+            state.write(html);
+            state.closeBlock(node);
+            return;
+          }
+          state.renderInline(node);
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
+/**
+ * Custom Heading extension preserving non-default textAlign via HTML serialization.
+ */
+export const CustomHeading = Heading.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: any, node: any) {
+          const align = node.attrs?.textAlign;
+          if (align && align !== "left") {
+            const html = getHTMLFromFragment(
+              Fragment.from(node),
+              node.type.schema,
+            );
+            state.write(html);
+            state.closeBlock(node);
+            return;
+          }
+          state.write(state.repeat("#", node.attrs.level) + " ");
+          state.renderInline(node);
+          state.closeBlock(node);
+        },
+        parse: {},
+      },
+    };
+  },
+});
+
+/**
+ * Custom Table extension whose Markdown serializer preserves atom-only cells (MathNode, FootnoteReference).
+ */
+export const CustomTable = Table.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: any, node: any) {
+          if (!isMarkdownSerializableTable(node)) {
+            const html = getHTMLFromFragment(
+              Fragment.from(node),
+              node.type.schema,
+            );
+            state.write(html);
+            state.closeBlock(node);
+            return;
+          }
+
+          state.inTable = true;
+          node.forEach((row: any, _p: number, i: number) => {
+            state.write("| ");
+            row.forEach((col: any, _p2: number, j: number) => {
+              if (j) {
+                state.write(" | ");
+              }
+              const cellContent = col.firstChild;
+              if (
+                cellContent &&
+                (cellContent.textContent.trim() || cellContent.childCount > 0)
+              ) {
+                state.renderInline(cellContent);
+              }
+            });
+            state.write(" |");
+            state.ensureNewLine();
+            if (!i) {
+              const delimiterRow = Array.from({ length: row.childCount })
+                .map(() => "---")
+                .join(" | ");
+              state.write(`| ${delimiterRow} |`);
+              state.ensureNewLine();
+            }
+          });
+          state.closeBlock(node);
+          state.inTable = false;
+        },
+        parse: {},
+      },
+    };
+  },
+});
 
 /**
  * Custom CodeBlock extension with Lowlight syntax highlighting and copy functionality.
@@ -161,27 +328,32 @@ export const CustomImage = Image.extend({
             (node.attrs.textAlign && node.attrs.textAlign !== "left");
           if (hasCustomAttrs) {
             const widthAttr = node.attrs.width
-              ? ` width="${node.attrs.width}"`
+              ? ` width="${escapeHtmlAttr(node.attrs.width)}"`
               : "";
             const alignAttr =
               node.attrs.textAlign && node.attrs.textAlign !== "left"
-                ? ` data-align="${node.attrs.textAlign}"`
+                ? ` data-align="${escapeHtmlAttr(node.attrs.textAlign)}"`
                 : "";
             const titleAttr = node.attrs.title
-              ? ` title="${state.esc(node.attrs.title)}"`
+              ? ` title="${escapeHtmlAttr(node.attrs.title)}"`
               : "";
             state.write(
-              `<img src="${node.attrs.src}" alt="${state.esc(
+              `<img src="${escapeHtmlAttr(node.attrs.src)}" alt="${escapeHtmlAttr(
                 node.attrs.alt || "",
               )}"${widthAttr}${alignAttr}${titleAttr} />`,
             );
           } else {
+            const safeSrc = String(node.attrs.src || "")
+              .replace(/\(/g, "%28")
+              .replace(/\)/g, "%29");
+            const safeTitle = node.attrs.title
+              ? ` "${String(node.attrs.title).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+              : "";
             state.write(
-              `![${state.esc(node.attrs.alt || "")}](${node.attrs.src}${
-                node.attrs.title ? ` "${state.esc(node.attrs.title)}"` : ""
-              })`,
+              `![${state.esc(node.attrs.alt || "")}](${safeSrc}${safeTitle})`,
             );
           }
+          state.closeBlock(node);
         },
         parse: {},
       },
@@ -207,8 +379,8 @@ export const CustomHighlight = Highlight.extend({
     return {
       markdown: {
         serialize: {
-          open: "==",
-          close: "==",
+          open: "<mark>",
+          close: "</mark>",
         },
       },
     };

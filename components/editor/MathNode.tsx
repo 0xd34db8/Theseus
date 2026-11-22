@@ -28,8 +28,16 @@ export function sanitizeLatex(raw: string): string {
     }
   } catch {}
 
-  // 1. Normalize doubled backslashes before LaTeX keywords / commands
-  s = s.replace(/\\\\+([a-zA-Z]+)/g, "\\$1");
+  // 1. Normalize genuinely double-escaped LaTeX commands without corrupting valid `\\` row breaks
+  //    (e.g. `1 & 2\\a & b` or `x \\\alpha`).
+  if (/\\\\begin\{/.test(s)) {
+    // Whole string came from double-escaped JSON (`\\begin` -> `\begin`, `\\\\` -> `\\`)
+    s = s.replace(/\\\\/g, "\\");
+  } else {
+    // Only collapse `\\cmd` (2+ letters) when preceded by start/whitespace/delimiter,
+    // never `\\\` (row break + command) and never single-letter variables like `2\\a`.
+    s = s.replace(/(^|[\s{([,=+\-*/^_])\\\\([a-zA-Z]{2,})/g, "$1\\$2");
+  }
 
   // 2. Fix matrix / array / cases / aligned environments:
   // Ensures rows are properly delimited by \\ rather than single \ or plain \n
@@ -246,7 +254,8 @@ export function transformMathInElement(element: HTMLElement) {
  * Interactive React NodeView for mathematical expressions
  */
 export function MathNodeView(props: any) {
-  const { node, updateAttributes, deleteNode, selected } = props;
+  const { node, updateAttributes, deleteNode, selected, editor } = props;
+  const isEditable = editor?.isEditable ?? true;
   const [isEditing, setIsEditing] = useState(false);
   const displayMode = node.attrs.display === "yes";
   const sanitizedLatex = useMemo(
@@ -256,6 +265,12 @@ export function MathNodeView(props: any) {
   const [latexInput, setLatexInput] = useState(sanitizedLatex);
   const [isDisplay, setIsDisplay] = useState(displayMode);
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!isEditable && isEditing) {
+      setIsEditing(false);
+    }
+  }, [isEditable, isEditing]);
 
   useEffect(() => {
     setLatexInput(sanitizedLatex);
@@ -301,7 +316,7 @@ export function MathNodeView(props: any) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !displayMode)) {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !isDisplay)) {
       e.preventDefault();
       handleSave();
     } else if (e.key === "Escape") {
@@ -312,7 +327,7 @@ export function MathNodeView(props: any) {
     }
   };
 
-  if (isEditing) {
+  if (isEditing && isEditable) {
     return (
       <NodeViewWrapper
         as={displayMode ? "div" : "span"}
@@ -410,26 +425,30 @@ export function MathNodeView(props: any) {
       as={displayMode ? "div" : "span"}
       className={`group relative ${
         displayMode ? "theseus-math-block" : "theseus-math-inline"
-      } ${selected ? "ring-2 ring-accent" : ""}`}
-      onDoubleClick={() => setIsEditing(true)}
-      title="Double click to edit LaTeX equation"
+      } ${selected && isEditable ? "ring-2 ring-accent" : ""}`}
+      onDoubleClick={() => {
+        if (isEditable) setIsEditing(true);
+      }}
+      title={isEditable ? "Double click to edit LaTeX equation" : undefined}
     >
       <span
         dangerouslySetInnerHTML={{ __html: renderedHtml }}
         className="select-text"
       />
 
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsEditing(true);
-        }}
-        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 hover:bg-card border border-border p-1 rounded-sm shadow-2xs text-foreground-subtle hover:text-foreground"
-        title="Edit LaTeX formula"
-      >
-        <Edit2 className="w-3 h-3" />
-      </button>
+      {isEditable && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditing(true);
+          }}
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 hover:bg-card border border-border p-1 rounded-sm shadow-2xs text-foreground-subtle hover:text-foreground"
+          title="Edit LaTeX formula"
+        >
+          <Edit2 className="w-3 h-3" />
+        </button>
+      )}
     </NodeViewWrapper>
   );
 }
@@ -578,7 +597,11 @@ export const MathNode = TiptapNode.create({
         serialize(state: any, node: any) {
           const isBlock = node.attrs.display === "yes";
           if (isBlock) {
-            state.write(`\n\n$$\n${node.attrs.latex}\n$$\n\n`);
+            if (state.inTable) {
+              state.write(`$$${node.attrs.latex}$$`);
+            } else {
+              state.write(`\n\n$$\n${node.attrs.latex}\n$$\n\n`);
+            }
           } else {
             state.write(`$${node.attrs.latex}$`);
           }

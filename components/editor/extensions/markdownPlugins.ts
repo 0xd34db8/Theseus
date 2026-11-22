@@ -314,8 +314,59 @@ function markdownItMath(md: any) {
   };
 }
 
+function markdownItMark(md: any) {
+  function markInline(state: any, silent: boolean) {
+    const start = state.pos;
+    const max = state.posMax;
+    if (
+      start + 4 > max ||
+      state.src.charCodeAt(start) !== 0x3d ||
+      state.src.charCodeAt(start + 1) !== 0x3d
+    ) {
+      return false;
+    }
+    if (start > 0 && state.src.charCodeAt(start - 1) === 0x5c) {
+      return false;
+    }
+    if (
+      state.src.charCodeAt(start + 2) === 0x3d ||
+      /\s/.test(state.src[start + 2])
+    ) {
+      return false;
+    }
+
+    let end = -1;
+    for (let i = start + 2; i < max - 1; i++) {
+      if (
+        state.src.charCodeAt(i) === 0x3d &&
+        state.src.charCodeAt(i + 1) === 0x3d &&
+        state.src.charCodeAt(i - 1) !== 0x5c &&
+        !/\s/.test(state.src[i - 1])
+      ) {
+        end = i;
+        break;
+      }
+    }
+
+    if (end === -1 || end === start + 2) return false;
+    if (silent) return true;
+
+    state.push("mark_open", "mark", 1);
+    const oldMax = state.posMax;
+    state.pos = start + 2;
+    state.posMax = end;
+    state.md.inline.tokenize(state);
+    state.pos = end + 2;
+    state.posMax = oldMax;
+    state.push("mark_close", "mark", -1);
+    return true;
+  }
+
+  md.inline.ruler.before("emphasis", "theseus_mark", markInline);
+}
+
 /**
- * Extension that hooks markdown-it plugins (footnotes, definition lists, LaTeX math) into tiptap-markdown.
+ * Extension that hooks markdown-it plugins (footnotes, definition lists, LaTeX math, highlight) into tiptap-markdown.
  */
 export const MarkdownPlugins = Extension.create({
   name: "markdownPlugins",
@@ -324,6 +375,9 @@ export const MarkdownPlugins = Extension.create({
       markdown: {
         parse: {
           setup(md: any) {
+            if ((md as any).__theseusPluginsInstalled) return;
+            (md as any).__theseusPluginsInstalled = true;
+
             const fn =
               (markdownItFootnote as any)?.default || markdownItFootnote;
             const def =
@@ -331,6 +385,7 @@ export const MarkdownPlugins = Extension.create({
             if (typeof fn === "function") md.use(fn);
             if (typeof def === "function") md.use(def);
             md.use(markdownItMath);
+            md.use(markdownItMark);
           },
           updateDOM(element: HTMLElement) {
             if (!element) return;
@@ -351,39 +406,41 @@ export const MarkdownPlugins = Extension.create({
                 }
               });
 
-            // 2. Footnotes: transform <section class="footnotes"> and <li class="footnote-item">
-            const footnotesSection = element.querySelector("section.footnotes");
-            if (footnotesSection) {
-              const items =
-                footnotesSection.querySelectorAll("li.footnote-item");
-              const defNodes: HTMLElement[] = [];
-              items.forEach((item) => {
-                const rawId = item.getAttribute("id") || "";
-                const label = rawId.replace(/^fn/, "") || "1";
-                item
-                  .querySelectorAll(".footnote-backref")
-                  .forEach((br) => br.remove());
-                const div = doc.createElement("div");
-                div.setAttribute("data-type", "footnoteDefinition");
-                div.setAttribute("data-label", label);
-                const source = item.querySelector("p") || item;
-                while (source.firstChild) {
-                  div.appendChild(source.firstChild);
-                }
-                if (
-                  div.firstChild?.nodeType === 3 &&
-                  div.firstChild.nodeValue
-                ) {
-                  div.firstChild.nodeValue =
-                    div.firstChild.nodeValue.trimStart();
-                }
-                if (div.lastChild?.nodeType === 3 && div.lastChild.nodeValue) {
-                  div.lastChild.nodeValue = div.lastChild.nodeValue.trimEnd();
-                }
-                defNodes.push(div);
+            // 2. Footnotes: transform all <section class="footnotes"> and <li class="footnote-item">
+            element
+              .querySelectorAll("section.footnotes")
+              .forEach((footnotesSection) => {
+                const items =
+                  footnotesSection.querySelectorAll("li.footnote-item");
+                const defNodes: HTMLElement[] = [];
+                items.forEach((item) => {
+                  const rawId = item.getAttribute("id") || "";
+                  const label = rawId.replace(/^fn/, "") || "1";
+                  item
+                    .querySelectorAll(".footnote-backref")
+                    .forEach((br) => br.remove());
+                  const div = doc.createElement("div");
+                  div.setAttribute("data-type", "footnoteDefinition");
+                  div.setAttribute("data-label", label);
+                  const source = item.querySelector("p") || item;
+                  while (source.firstChild) {
+                    div.appendChild(source.firstChild);
+                  }
+                  if (
+                    div.firstChild?.nodeType === 3 &&
+                    div.firstChild.nodeValue
+                  ) {
+                    div.firstChild.nodeValue =
+                      div.firstChild.nodeValue.trimStart();
+                  }
+                  if (div.lastChild?.nodeType === 3 && div.lastChild.nodeValue) {
+                    div.lastChild.nodeValue =
+                      div.lastChild.nodeValue.trimEnd();
+                  }
+                  defNodes.push(div);
+                });
+                footnotesSection.replaceWith(...defNodes);
               });
-              footnotesSection.replaceWith(...defNodes);
-            }
             element
               .querySelectorAll("hr.footnotes-sep")
               .forEach((hr) => hr.remove());
