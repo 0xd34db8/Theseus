@@ -108,8 +108,12 @@ export default function EditPage() {
   // Keyboard shortcut listener: strictly respects whichever panel is clicked/active
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+F / Cmd+F: routes to the search bar of whichever pane is highlighted/active
+      // Ctrl+F / Cmd+F: let fullscreen NoteEditor handle its own search bar; otherwise route to active pane
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        if (document.querySelector('[data-editor-fullscreen="true"]')) {
+          return;
+        }
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -154,7 +158,9 @@ export default function EditPage() {
       const isInsideEditor = Boolean(
         target &&
           (target.closest("[data-editor-pane]") ||
+            target.closest("[data-subsections-drawer]") ||
             target.isContentEditable ||
+            target.closest(".ProseMirror") ||
             target.tagName === "TEXTAREA" ||
             (target.tagName === "INPUT" && !target.closest("[data-tree-pane]"))),
       );
@@ -248,10 +254,16 @@ export default function EditPage() {
     };
   }, [syllabus.fileName]);
 
-  // Export as .theseus on Ctrl+S / Cmd+S
+  // Export as .theseus on Ctrl+S / Cmd+S (strictly ignoring Shift/Alt modifiers such as Ctrl+Shift+S strikethrough)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        !e.defaultPrevented &&
+        e.key.toLowerCase() === "s"
+      ) {
         e.preventDefault();
         if (activeEditorFlushRef.current) {
           activeEditorFlushRef.current();

@@ -232,8 +232,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         return;
       }
 
-      // Escape key: close search bar first if open; otherwise exit fullscreen
+      // Escape key: respect inner modals/inputs/drawers that already handled Escape
       if (e.key === "Escape") {
+        if (e.defaultPrevented) return;
         if (isFullscreenSearchOpen) {
           e.preventDefault();
           e.stopPropagation();
@@ -377,12 +378,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
         ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && e.shiftKey);
 
       if (!isUndo && !isRedo) return;
+      if (e.defaultPrevented) return;
 
       const target = e.target as HTMLElement | null;
-      // If typing in another normal input/textarea inside the editor (like comment inputs), let native input undo handle it
+      // Ignore native inputs, textareas, other contenteditable editors (e.g. SubsectionsDrawer), or the subsections drawer itself
       if (
         target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          Boolean(target.closest(".ProseMirror")) ||
+          Boolean(target.closest("[data-subsections-drawer]")))
       ) {
         return;
       }
@@ -727,6 +733,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   return (
     <div
       data-editor-pane="true"
+      data-editor-fullscreen={isFullscreen ? "true" : undefined}
       className={`flex flex-col font-manrope transition-all duration-200 ${
         isFullscreen
           ? "fixed inset-0 z-50 bg-card h-screen w-screen overflow-hidden"
@@ -772,6 +779,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSaveTitle();
                 else if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
                   setTitleValue(selectedTopic.title);
                   setIsEditingTitle(false);
                 }
@@ -822,6 +832,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
                     setIsFullscreenSearchOpen(false);
                     onSearchChange?.("");
                   }

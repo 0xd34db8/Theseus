@@ -27,10 +27,13 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
   const popoverRef = useRef<HTMLDivElement>(null);
   const subComments: NoteComment[] = selectedTopic.note?.subComments || [];
 
-  // Close on Escape key
+  // Close on Escape key only if no inner modal/control/input handled it first
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         onClose();
       }
     };
@@ -198,6 +201,7 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
   return (
     <div
       ref={popoverRef}
+      data-subsections-drawer="true"
       className="fixed bottom-14 right-4 sm:right-6 w-[380px] sm:w-[460px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[75vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-4 duration-200 font-manrope"
     >
       {/* Scrollable Subsections Feed */}

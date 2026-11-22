@@ -134,7 +134,7 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
   <img src="showcase/JSON_Editor.png" alt="Dual-Mode Live JSON Tree Editor" width="320" />
 </p>
 
-- **Seamless Toggle**: Switch between the visual tree and raw JSON via the `{ }` (Braces) button in the tree header (`Ctrl+Enter` or `Esc` to parse and toggle back).
+- **Seamless Toggle**: Switch between the visual tree and raw JSON via the `{ }` (Braces) button in the tree header (`Ctrl+Enter` / `Cmd+Enter` to apply valid JSON and return to the tree, `Esc` to discard uncommitted edits).
 - **Syntax Highlighting**: Real-time syntax-highlighted code overlay with instant validity detection (caret and text display in red when JSON syntax is incomplete or invalid).
 - **Intelligent Formatting**: 2-space `Tab` key indentation and `Enter` key auto-indentation with opening bracket awareness (`{` and `[`).
 - **Format Button**: One-click automatic indentation cleanup.
@@ -180,7 +180,7 @@ Theseus eliminates this boundary by merging curriculum structure and topic notes
 - **TipTap Live Composer**: Full rich text editing with compact toolbar.
 - **Keyboard Submission**: Press `Mod+Enter` to save and add a sub-section immediately.
 - **In-Place Editing**: Double-click any existing sub-section card or click the pencil icon to edit in-place.
-- **Markdown Display**: Rendered using GitHub-flavored Markdown with syntax-highlighted blocks.
+- **Markdown Display**: Rendered using GitHub-flavored Markdown with KaTeX math, underline, highlight, font-size, and text-alignment support.
 
 ### Universal LLM Connectivity & Prompt Export
 
@@ -280,8 +280,8 @@ Theseus provides flexible AI options. Users can configure API credentials direct
    - **Anthropic Claude**: Messages API with direct browser support (`claude-3-5-haiku`, etc.).
    - **OpenRouter**: Unified model router.
    - **Groq**: High-throughput inference (`llama-3.3-70b-versatile`).
-   - **Custom**: Any OpenAI-compatible server URL (e.g. Ollama, vLLM, LocalAI).
-3. Test credentials using the integrated connection tester. Keys are persisted only in local browser storage.
+   - **Custom**: Any OpenAI-compatible server URL (e.g. Ollama, vLLM, LocalAI) — requires a **Base URL** under Advanced settings. Optional custom Base URL overrides are also supported for all other providers.
+3. Test credentials using the integrated connection tester. Keys are persisted only in local browser storage. Direct `.pdf` ingestion requires **Google Gemini** or **Anthropic Claude**; `.docx`, `.txt`, `.theseus`, and pasted text work with all providers.
 
 ### Option B: External LLM Workflow (No API Key Required)
 
@@ -297,10 +297,11 @@ Theseus provides flexible AI options. Users can configure API credentials direct
 | Shortcut           | Context            | Action                                                     |
 | :----------------- | :----------------- | :--------------------------------------------------------- |
 | `Cmd+V` / `Ctrl+V` | Homepage           | Instantly parse clipboard syllabus JSON and open workspace |
+| `Cmd+F` / `Ctrl+F` | Workspace / Fullscreen | Focus search for the active pane or open fullscreen note search |
 | `Cmd+S` / `Ctrl+S` | Workspace          | Export current syllabus as native `.theseus` file          |
 | `Cmd+Z` / `Ctrl+Z` | Syllabus Tree      | Undo structural tree change (preserves note content)       |
 | `Cmd+Y` / `Ctrl+Y` | Syllabus Tree      | Redo structural tree change (preserves note content)       |
-| `Ctrl+Enter`       | JSON Tree Editor   | Parse JSON and return to visual tree                       |
+| `Cmd+Enter` / `Ctrl+Enter` | JSON Tree Editor | Apply valid JSON and return to visual tree              |
 | `Tab`              | JSON Tree Editor   | Insert 2-space indentation                                 |
 | `Cmd+B` / `Ctrl+B` | Note Editor        | Toggle bold formatting                                     |
 | `Cmd+I` / `Ctrl+I` | Note Editor        | Toggle italic formatting                                   |
@@ -312,7 +313,7 @@ Theseus provides flexible AI options. Users can configure API credentials direct
 | `Cmd+Shift+R`      | Note Editor        | Align text right                                           |
 | `Cmd+Shift+J`      | Note Editor        | Align text justify                                         |
 | `Cmd+Enter`        | Subsections Drawer | Save and submit sub-section note                           |
-| `Esc`              | Editor / Modals    | Exit fullscreen / Exit JSON mode / Close modal / Cancel    |
+| `Esc`              | Editor / Modals    | Discard JSON edits / Dismiss innermost modal, popover, or drawer / Exit fullscreen |
 | Double-Click       | Syllabus Tree      | Rename topic in-place                                      |
 | Double-Click       | Subsections Drawer | Edit existing sub-section in-place                         |
 

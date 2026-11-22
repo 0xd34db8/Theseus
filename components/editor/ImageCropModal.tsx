@@ -82,22 +82,26 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
     });
   };
 
-  // Keyboard shortcut listener (Escape to cancel, Enter to apply)
+  // Keyboard shortcut listener (Escape to cancel, Enter to apply) in capture phase so outer layers don't also dismiss
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         onCancel();
-      } else if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey) {
+      } else if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         handleApply();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [isOpen, crop, naturalDimensions]);
 
   const handlePointerDown = (

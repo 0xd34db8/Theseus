@@ -98,6 +98,8 @@ export default function HomePage() {
   // API Key management
   const [apiKey, setApiKey] = useState<string>("");
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const isApiKeyModalOpenRef = useRef(false);
+  isApiKeyModalOpenRef.current = isApiKeyModalOpen;
 
   useEffect(() => {
     isProcessingPasteRef.current = false;
@@ -143,15 +145,24 @@ export default function HomePage() {
     return false;
   };
 
-  // Universal paste detector: works anywhere on the homepage via Cmd+V (macOS) / Ctrl+V (Windows)
-  // as well as native browser paste events, even when no text box or input is focused
+  // Universal paste detector: single window listener; bypasses ApiKeyModal and <input> fields
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.focus();
     }
 
+    const shouldBypassTarget = (target: EventTarget | null) => {
+      if (isApiKeyModalOpenRef.current) return true;
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      if (el.tagName === "INPUT" || el.closest('[data-modal="true"]')) {
+        return true;
+      }
+      return false;
+    };
+
     const handlePasteEvent = async (e: ClipboardEvent) => {
-      if (isProcessingPasteRef.current) return;
+      if (isProcessingPasteRef.current || shouldBypassTarget(e.target)) return;
 
       let pastedText =
         e.clipboardData?.getData("text/plain") ||
@@ -175,7 +186,7 @@ export default function HomePage() {
     };
 
     const handleGlobalKeyDown = async (e: KeyboardEvent) => {
-      if (isProcessingPasteRef.current) return;
+      if (isProcessingPasteRef.current || shouldBypassTarget(e.target)) return;
       const isPasteShortcut =
         (e.metaKey || e.ctrlKey) &&
         (e.key?.toLowerCase() === "v" || e.code === "KeyV");
@@ -183,12 +194,12 @@ export default function HomePage() {
       if (!isPasteShortcut) return;
 
       const target = e.target as HTMLElement | null;
-      const isInput =
+      const isInputOrTextarea =
         target &&
         (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
 
       if (
-        !isInput &&
+        !isInputOrTextarea &&
         navigator.clipboard &&
         typeof navigator.clipboard.readText === "function"
       ) {
@@ -205,15 +216,11 @@ export default function HomePage() {
     };
 
     window.addEventListener("paste", handlePasteEvent, true);
-    document.addEventListener("paste", handlePasteEvent, true);
     window.addEventListener("keydown", handleGlobalKeyDown, true);
-    document.addEventListener("keydown", handleGlobalKeyDown, true);
 
     return () => {
       window.removeEventListener("paste", handlePasteEvent, true);
-      document.removeEventListener("paste", handlePasteEvent, true);
       window.removeEventListener("keydown", handleGlobalKeyDown, true);
-      document.removeEventListener("keydown", handleGlobalKeyDown, true);
     };
   }, [router]);
 
@@ -581,16 +588,6 @@ export default function HomePage() {
                     onChange={(e) => {
                       setRawText(e.target.value);
                       setErrorMessage(null);
-                    }}
-                    onPaste={(e) => {
-                      const pastedText =
-                        e.clipboardData?.getData("text/plain") ||
-                        e.clipboardData?.getData("text") ||
-                        "";
-                      if (pastedText && processPastedText(pastedText)) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }
                     }}
                     placeholder="Paste unformatted syllabus text or generated JSON here (pasting JSON will automatically open it):&#10;&#10;UNIT I: Introduction to Machine Learning&#10;Types of Learning: Supervised, Unsupervised, Reinforcement&#10;Theory of Generalization: Generalization bound, VC Dimension&#10;Decision Trees, Neural Networks, Ensemble Learning"
                     className="w-full h-[150px] lg:h-[230px] xl:h-[260px] p-3.5 lg:p-4.5 bg-subtle border border-border rounded-2xl text-xs lg:text-sm font-mono text-foreground placeholder-muted-foreground outline-hidden focus:border-accent focus:bg-card resize-none transition-all leading-relaxed"

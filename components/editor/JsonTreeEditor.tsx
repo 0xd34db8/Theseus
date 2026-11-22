@@ -68,16 +68,16 @@ export function highlightJson(
         const colonIndex = token.lastIndexOf(":");
         const keyPart = token.slice(0, colonIndex);
         const colonPart = token.slice(colonIndex);
-        html += `<span class="text-sky-600 dark:text-sky-400 font-semibold">${escapeAndHighlight(keyPart, search)}</span><span class="text-foreground-subtle">${escapeAndHighlight(colonPart, search)}</span>`;
+        html += `<span class="text-sky-600 dark:text-sky-400">${escapeAndHighlight(keyPart, search)}</span><span class="text-foreground-subtle">${escapeAndHighlight(colonPart, search)}</span>`;
       } else {
         html += `<span class="text-emerald-600 dark:text-emerald-400">${escapeAndHighlight(token, search)}</span>`;
       }
     } else if (/^(true|false|null)$/.test(token)) {
-      html += `<span class="text-amber-600 dark:text-amber-400 font-medium">${escapeAndHighlight(token, search)}</span>`;
+      html += `<span class="text-amber-600 dark:text-amber-400">${escapeAndHighlight(token, search)}</span>`;
     } else if (/^-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?$/.test(token)) {
       html += `<span class="text-purple-600 dark:text-purple-400">${escapeAndHighlight(token, search)}</span>`;
     } else if (/[{}\[\]]/.test(token)) {
-      html += `<span class="text-foreground font-bold">${escapeAndHighlight(token, search)}</span>`;
+      html += `<span class="text-foreground">${escapeAndHighlight(token, search)}</span>`;
     } else if (token === ",") {
       html += `<span class="text-muted-foreground">${escapeAndHighlight(token, search)}</span>`;
     } else {
@@ -427,7 +427,8 @@ export function JsonTreeEditor({
         <pre
           ref={preRef}
           aria-hidden="true"
-          className="absolute inset-0 pointer-events-none select-none m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word overflow-hidden tab-2"
+          style={{ scrollbarGutter: "stable" }}
+          className="absolute inset-0 pointer-events-none select-none m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word overflow-y-scroll overflow-x-hidden tab-2"
           dangerouslySetInnerHTML={{
             __html:
               highlightJson(jsonText, isValidJson, activeSearchQuery) +
@@ -442,7 +443,8 @@ export function JsonTreeEditor({
           onKeyDown={handleKeyDown}
           placeholder="Edit syllabus tree JSON here..."
           spellCheck={false}
-          className={`relative w-full h-full m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word bg-transparent outline-hidden resize-none overflow-y-auto text-transparent selection:text-transparent tab-2 ${
+          style={{ scrollbarGutter: "stable" }}
+          className={`relative w-full h-full m-0 p-3.5 font-mono text-xs leading-[20px] whitespace-pre-wrap wrap-break-word bg-transparent outline-hidden resize-none overflow-y-scroll overflow-x-hidden text-transparent selection:text-transparent tab-2 ${
             isValidJson
               ? "caret-foreground selection:bg-accent-subtle"
               : "caret-red-500 selection:bg-red-500/20"

@@ -253,7 +253,10 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && isVisible) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         if (isTurnIntoOpen || isLinkInputOpen || isMoreOpen) {
           setIsTurnIntoOpen(false);
           setIsLinkInputOpen(false);
@@ -282,7 +285,7 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
     window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("scroll", handleScrollOrResize, true);
     window.addEventListener("resize", handleScrollOrResize);
-    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("mousedown", handlePointerDownOutside);
 
     return () => {
@@ -291,7 +294,7 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("scroll", handleScrollOrResize, true);
       window.removeEventListener("resize", handleScrollOrResize);
-      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("mousedown", handlePointerDownOutside);
     };
   }, [editor, isVisible, updatePosition, isTurnIntoOpen, isLinkInputOpen, isMoreOpen]);
@@ -431,6 +434,9 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
                   e.preventDefault();
                   handleApplyLink();
                 } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
                   setIsLinkInputOpen(false);
                 }
               }}

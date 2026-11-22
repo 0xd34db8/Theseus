@@ -265,16 +265,27 @@ export function EditorToolbar({
       setIsOpen(false);
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        setIsOpen(false);
+      }
+    };
+
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("touchstart", handlePointerDown);
     window.addEventListener("scroll", handleScrollOrResize, true);
     window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("touchstart", handlePointerDown);
       window.removeEventListener("scroll", handleScrollOrResize, true);
       window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [isOpen, updatePopoverCoords]);
 
@@ -426,6 +437,8 @@ export function EditorToolbar({
               inputRef.current?.blur();
             } else if (e.key === "Escape") {
               e.preventDefault();
+              e.stopPropagation();
+              e.nativeEvent.stopImmediatePropagation();
               isTypingRef.current = false;
               setIsOpen(false);
               setInputValue(getActiveSize());

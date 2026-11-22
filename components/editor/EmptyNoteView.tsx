@@ -95,7 +95,12 @@ export const EmptyNoteView: React.FC<EmptyNoteViewProps> = ({
               onChange={(e) => onTitleChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSaveTitle();
-                else if (e.key === "Escape") onCancelEditTitle();
+                else if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                  onCancelEditTitle();
+                }
               }}
               onBlur={onSaveTitle}
               autoFocus

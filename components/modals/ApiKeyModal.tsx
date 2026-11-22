@@ -53,16 +53,35 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       setInputKey(cfg.apiKey || "");
       setModel(cfg.model || "");
       setBaseURL(cfg.baseURL || "");
+      setShowAdvanced(cfg.provider === "custom" || Boolean(cfg.baseURL));
       setTestResult(null);
       setSavedFeedback(false);
     }
   }, [isOpen]);
+
+  // Capture Escape when modal is open so outer overlays (Fullscreen, SubsectionsDrawer) don't also dismiss
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleGlobalEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalEscape, true);
+    return () => window.removeEventListener("keydown", handleGlobalEscape, true);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const handleProviderChange = (newProvider: LLMProvider) => {
     setProvider(newProvider);
     setModel(getDefaultModelForProvider(newProvider));
+    if (newProvider === "custom") {
+      setShowAdvanced(true);
+    }
     setTestResult(null);
   };
 
@@ -77,6 +96,14 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       setTestResult({
         success: false,
         message: "Please enter an API key to test",
+      });
+      return;
+    }
+    if (provider === "custom" && !baseURL.trim()) {
+      setShowAdvanced(true);
+      setTestResult({
+        success: false,
+        message: "Base URL is required for custom providers",
       });
       return;
     }
@@ -115,11 +142,21 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
   const handleSave = () => {
     const cleanKey = inputKey.trim();
+    const cleanBaseUrl = baseURL.trim();
+    if (provider === "custom" && !cleanBaseUrl) {
+      setShowAdvanced(true);
+      setTestResult({
+        success: false,
+        message: "Base URL is required for custom providers",
+      });
+      return;
+    }
+
     const cleanConfig: AIConfig = {
       provider,
       apiKey: cleanKey,
       model: model.trim() || getDefaultModelForProvider(provider),
-      baseURL: baseURL.trim() || undefined,
+      baseURL: cleanBaseUrl || undefined,
     };
 
     saveAIConfig(cleanConfig);
@@ -149,6 +186,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      data-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
@@ -259,15 +299,19 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               />
             </div>
 
-            {/* Custom Base URL (if custom or openrouter or overridden) */}
+            {/* Custom Base URL (required for custom provider, optional override for others) */}
             <div className="space-y-1">
               <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Base URL (optional)
+                {provider === "custom" ? "Base URL (required)" : "Base URL (optional)"}
               </label>
               <input
                 type="text"
                 value={baseURL}
-                onChange={(e) => setBaseURL(e.target.value)}
+                onChange={(e) => {
+                  setBaseURL(e.target.value);
+                  setTestResult(null);
+                }}
+                onKeyDown={handleKeyDown}
                 placeholder={
                   provider === "custom"
                     ? "http://localhost:11434/v1"

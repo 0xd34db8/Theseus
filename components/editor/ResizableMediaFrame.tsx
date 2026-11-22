@@ -56,6 +56,14 @@ export const ResizableMediaFrame: React.FC<ResizableMediaFrameProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const latestWidthRef = useRef<number | null>(parseMediaWidth(node.attrs.width));
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+      resizeCleanupRef.current = null;
+    };
+  }, []);
 
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -126,6 +134,8 @@ export const ResizableMediaFrame: React.FC<ResizableMediaFrameProps> = ({
 
       selectNode();
 
+      resizeCleanupRef.current?.();
+
       const startX = e.clientX;
       const startWidth = container.getBoundingClientRect().width;
       const maxWidth = Math.max(minWidth, getMaxContainerWidth());
@@ -149,10 +159,15 @@ export const ResizableMediaFrame: React.FC<ResizableMediaFrameProps> = ({
         setLiveWidth(clamped);
       };
 
-      const onMouseUp = (upEvent: MouseEvent) => {
-        upEvent.preventDefault();
+      const cleanup = () => {
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
+      };
+
+      const onMouseUp = (upEvent: MouseEvent) => {
+        upEvent.preventDefault();
+        cleanup();
+        resizeCleanupRef.current = null;
         setIsResizing(false);
 
         const measured = containerRef.current
@@ -164,6 +179,7 @@ export const ResizableMediaFrame: React.FC<ResizableMediaFrameProps> = ({
         }
       };
 
+      resizeCleanupRef.current = cleanup;
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
     },

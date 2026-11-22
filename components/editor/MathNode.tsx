@@ -318,9 +318,12 @@ export function MathNodeView(props: any) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !isDisplay)) {
       e.preventDefault();
+      e.stopPropagation();
       handleSave();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
       setLatexInput(node.attrs.latex || "");
       setIsDisplay(node.attrs.display === "yes");
       setIsEditing(false);

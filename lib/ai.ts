@@ -47,10 +47,26 @@ export async function callUniversalLLM(
     throw new Error("API key is missing. Please configure your API key.");
   }
 
+  const customBase = baseURL?.trim().replace(/\/+$/, "") || "";
+
   // 1. Google Gemini Provider
   if (provider === "gemini") {
     const cleanModel = (model || "gemini-3.8-flash").replace(/^models\//, "");
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey.trim()}`;
+    const defaultGeminiBase = "https://generativelanguage.googleapis.com/v1beta";
+    let endpoint: string;
+    if (customBase) {
+      if (customBase.includes(":generateContent")) {
+        endpoint = customBase.includes("key=")
+          ? customBase
+          : `${customBase}${customBase.includes("?") ? "&" : "?"}key=${apiKey.trim()}`;
+      } else if (customBase.endsWith("/models")) {
+        endpoint = `${customBase}/${cleanModel}:generateContent?key=${apiKey.trim()}`;
+      } else {
+        endpoint = `${customBase}/models/${cleanModel}:generateContent?key=${apiKey.trim()}`;
+      }
+    } else {
+      endpoint = `${defaultGeminiBase}/models/${cleanModel}:generateContent?key=${apiKey.trim()}`;
+    }
     const parts: any[] = [];
 
     if (options.fileData) {
@@ -115,7 +131,11 @@ export async function callUniversalLLM(
 
   // 2. Anthropic Claude Provider
   if (provider === "anthropic") {
-    const endpoint = "https://api.anthropic.com/v1/messages";
+    const endpoint = customBase
+      ? customBase.endsWith("/messages")
+        ? customBase
+        : `${customBase}/messages`
+      : "https://api.anthropic.com/v1/messages";
     const messages: any[] = [];
     const content: any[] = [];
 
@@ -170,6 +190,18 @@ export async function callUniversalLLM(
   }
 
   // 3. OpenAI / OpenRouter / Groq / Custom (OpenAI-compatible)
+  if (options.fileData && options.fileData.mimeType === "application/pdf") {
+    throw new Error(
+      "Direct PDF upload is only supported with Google Gemini or Anthropic Claude. Switch providers in API Key settings, or paste the syllabus text / upload a .docx or .txt file instead.",
+    );
+  }
+
+  if (provider === "custom" && !customBase) {
+    throw new Error(
+      "Base URL is required for Custom / OpenAI-compatible providers. Enter your endpoint URL under Advanced settings in API Key configuration.",
+    );
+  }
+
   let endpoint = "https://api.openai.com/v1/chat/completions";
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey.trim()}`,
@@ -182,11 +214,12 @@ export async function callUniversalLLM(
     headers["X-Title"] = "Theseus";
   } else if (provider === "groq") {
     endpoint = "https://api.groq.com/openai/v1/chat/completions";
-  } else if (provider === "custom" && baseURL) {
-    const cleanBase = baseURL.replace(/\/+$/, "");
-    endpoint = cleanBase.endsWith("/chat/completions")
-      ? cleanBase
-      : `${cleanBase}/chat/completions`;
+  }
+
+  if (customBase) {
+    endpoint = customBase.endsWith("/chat/completions")
+      ? customBase
+      : `${customBase}/chat/completions`;
   }
 
   const messages: Array<{ role: string; content: string }> = [];
