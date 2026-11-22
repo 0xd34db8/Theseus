@@ -98,6 +98,7 @@ export const EmptyNoteView: React.FC<EmptyNoteViewProps> = ({
                 else if (e.key === "Escape") {
                   e.preventDefault();
                   e.stopPropagation();
+                  (e.nativeEvent as any).__theseusEscapeHandled = true;
                   e.nativeEvent.stopImmediatePropagation();
                   onCancelEditTitle();
                 }

@@ -436,6 +436,7 @@ export const FloatingTextMenu: React.FC<FloatingTextMenuProps> = ({
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   e.stopPropagation();
+                  (e.nativeEvent as any).__theseusEscapeHandled = true;
                   e.nativeEvent.stopImmediatePropagation();
                   setIsLinkInputOpen(false);
                 }

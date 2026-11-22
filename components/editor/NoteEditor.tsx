@@ -234,7 +234,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
       // Escape key: respect inner modals/inputs/drawers that already handled Escape
       if (e.key === "Escape") {
-        if (e.defaultPrevented) return;
+        if ((e as any).__theseusEscapeHandled) return;
+        (e as any).__theseusEscapeHandled = true;
         if (isFullscreenSearchOpen) {
           e.preventDefault();
           e.stopPropagation();
@@ -781,6 +782,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 else if (e.key === "Escape") {
                   e.preventDefault();
                   e.stopPropagation();
+                  (e.nativeEvent as any).__theseusEscapeHandled = true;
                   e.nativeEvent.stopImmediatePropagation();
                   setTitleValue(selectedTopic.title);
                   setIsEditingTitle(false);
@@ -832,6 +834,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     e.stopPropagation();
+                    (e.nativeEvent as any).__theseusEscapeHandled = true;
                     e.nativeEvent.stopImmediatePropagation();
                     setIsFullscreenSearchOpen(false);
                     onSearchChange?.("");

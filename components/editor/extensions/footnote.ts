@@ -108,6 +108,8 @@ export const FootnoteDefinition = TiptapNode.create({
     return [
       {
         tag: 'div[data-type="footnoteDefinition"]',
+        contentElement: (element) =>
+          element.querySelector(".theseus-footnote-body") ?? element,
       },
       {
         tag: "li.footnote-item",

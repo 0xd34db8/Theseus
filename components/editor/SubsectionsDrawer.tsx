@@ -30,7 +30,8 @@ export const SubsectionsDrawer: React.FC<SubsectionsDrawerProps> = ({
   // Close on Escape key only if no inner modal/control/input handled it first
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) {
+      if (e.key === "Escape" && !(e as any).__theseusEscapeHandled) {
+        (e as any).__theseusEscapeHandled = true;
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();

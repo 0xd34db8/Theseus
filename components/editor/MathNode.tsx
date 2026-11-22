@@ -255,7 +255,9 @@ export function transformMathInElement(element: HTMLElement) {
  */
 export function MathNodeView(props: any) {
   const { node, updateAttributes, deleteNode, selected, editor } = props;
-  const isEditable = editor?.isEditable ?? true;
+  const [isEditable, setIsEditable] = useState<boolean>(
+    () => editor?.isEditable ?? true,
+  );
   const [isEditing, setIsEditing] = useState(false);
   const displayMode = node.attrs.display === "yes";
   const sanitizedLatex = useMemo(
@@ -265,6 +267,20 @@ export function MathNodeView(props: any) {
   const [latexInput, setLatexInput] = useState(sanitizedLatex);
   const [isDisplay, setIsDisplay] = useState(displayMode);
   const inputRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    const syncEditable = () => {
+      setIsEditable(Boolean(editor.isEditable));
+    };
+    syncEditable();
+    editor.on("update", syncEditable);
+    editor.on("transaction", syncEditable);
+    return () => {
+      editor.off("update", syncEditable);
+      editor.off("transaction", syncEditable);
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (!isEditable && isEditing) {
@@ -323,6 +339,7 @@ export function MathNodeView(props: any) {
     } else if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
+      (e.nativeEvent as any).__theseusEscapeHandled = true;
       e.nativeEvent.stopImmediatePropagation();
       setLatexInput(node.attrs.latex || "");
       setIsDisplay(node.attrs.display === "yes");

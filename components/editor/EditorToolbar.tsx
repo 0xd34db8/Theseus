@@ -84,6 +84,7 @@ export function EditorToolbar({
   const popoverRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTypingRef = useRef(false);
+  const skipNextBlurApplyRef = useRef(false);
 
   const updatePopoverCoords = useCallback(() => {
     if (comboboxRef.current) {
@@ -267,6 +268,7 @@ export function EditorToolbar({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        (e as any).__theseusEscapeHandled = true;
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -426,6 +428,10 @@ export function EditorToolbar({
           }}
           onBlur={() => {
             isTypingRef.current = false;
+            if (skipNextBlurApplyRef.current) {
+              skipNextBlurApplyRef.current = false;
+              return;
+            }
             applySize(inputValue);
           }}
           onKeyDown={(e) => {
@@ -438,8 +444,10 @@ export function EditorToolbar({
             } else if (e.key === "Escape") {
               e.preventDefault();
               e.stopPropagation();
+              (e.nativeEvent as any).__theseusEscapeHandled = true;
               e.nativeEvent.stopImmediatePropagation();
               isTypingRef.current = false;
+              skipNextBlurApplyRef.current = true;
               setIsOpen(false);
               setInputValue(getActiveSize());
               inputRef.current?.blur();
