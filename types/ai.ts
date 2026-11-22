@@ -17,6 +17,7 @@ export interface CallLLMOptions {
   systemPrompt?: string;
   userPrompt: string;
   jsonOutput?: boolean;
+  signal?: AbortSignal;
   fileData?: {
     base64: string;
     mimeType: string;

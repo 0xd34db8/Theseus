@@ -50,7 +50,11 @@ function insertImageFile(view: EditorView, file: File) {
 
 interface NoteEditorProps {
   selectedTopic: SyllabusItem | null;
-  onSaveNote: (topicId: string, note: TopicNote) => void;
+  onSaveNote: (
+    topicId: string,
+    note: TopicNote,
+    options?: { createIfMissing?: boolean },
+  ) => void;
   onUpdateStatus: (topicId: string, status: TopicStatus) => void;
   onClose: () => void;
   courseTitle?: string;
@@ -133,6 +137,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const isProgrammaticUpdateRef = useRef<boolean>(false);
   const latestMarkdownRef = useRef<string>(selectedTopic?.note?.content || "");
   const isDirtyRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+  const aiAbortControllerRef = useRef<AbortController | null>(null);
 
   // Synchronous flush of any pending autosave changes
   const flushSave = useCallback(() => {
@@ -147,16 +153,26 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     isDirtyRef.current = false;
     onSaveNoteRef.current(
       topic.id,
-      buildTopicNote(topic, { content: latestMarkdownRef.current }),
+      buildTopicNote(topic, {
+        content: latestMarkdownRef.current,
+        subComments: undefined,
+      }),
+      { createIfMissing: false },
     );
   }, []);
 
   const flushSaveRef = useRef(flushSave);
   flushSaveRef.current = flushSave;
 
-  // Flush pending changes on unmount
+  // Flush pending changes and abort in-flight AI generation on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      if (aiAbortControllerRef.current) {
+        aiAbortControllerRef.current.abort();
+        aiAbortControllerRef.current = null;
+      }
       flushSaveRef.current();
     };
   }, []);
@@ -267,7 +283,11 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       const topic = selectedTopicRef.current;
       onSaveNoteRef.current(
         topic.id,
-        buildTopicNote(topic, { content: updatedMarkdown }),
+        buildTopicNote(topic, {
+          content: updatedMarkdown,
+          subComments: undefined,
+        }),
+        { createIfMissing: false },
       );
     }, 350);
   };
@@ -522,14 +542,27 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   };
 
   // Immediate save helper for AI note generation
-  const handleAutoSave = (updatedContent: string) => {
+  const handleAutoSave = (
+    updatedContent: string,
+    createIfMissing: boolean,
+  ) => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
     const topic = selectedTopicRef.current;
     if (!topic) return;
+    if (!createIfMissing && !topic.hasNote) return;
+
     latestMarkdownRef.current = updatedContent;
     isDirtyRef.current = false;
     onSaveNoteRef.current(
       topic.id,
-      buildTopicNote(topic, { content: updatedContent }),
+      buildTopicNote(topic, {
+        content: updatedContent,
+        subComments: undefined,
+      }),
+      { createIfMissing },
     );
   };
 
@@ -559,6 +592,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       return;
     }
 
+    if (aiAbortControllerRef.current) {
+      aiAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    aiAbortControllerRef.current = controller;
+
+    const targetTopicId = selectedTopic.id;
+    const startedWithoutNote = !selectedTopic.hasNote;
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+
     setIsAiGenerating(true);
     setAiError(null);
 
@@ -568,24 +615,48 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           topicTitle: selectedTopic.title,
           parentTitle: parentTitle,
           courseTitle: courseTitle,
+          signal: controller.signal,
         },
         key,
       );
 
+      if (!isMountedRef.current || controller.signal.aborted) return;
+
+      const currentTopic = selectedTopicRef.current;
+      if (!currentTopic || currentTopic.id !== targetTopicId) return;
+      if (!startedWithoutNote && !currentTopic.hasNote) return;
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+
       latestMarkdownRef.current = generated;
       isDirtyRef.current = false;
-      if (editor) {
+      if (editor && !editor.isDestroyed) {
         isProgrammaticUpdateRef.current = true;
         editor.commands.setContent(generated, { emitUpdate: false });
         setTimeout(() => {
           isProgrammaticUpdateRef.current = false;
         }, 0);
       }
-      handleAutoSave(generated);
+      handleAutoSave(generated, startedWithoutNote);
     } catch (err: any) {
+      if (
+        !isMountedRef.current ||
+        controller.signal.aborted ||
+        err?.name === "AbortError"
+      ) {
+        return;
+      }
       setAiError(err.message || "Failed to generate notes with AI.");
     } finally {
-      setIsAiGenerating(false);
+      if (aiAbortControllerRef.current === controller) {
+        aiAbortControllerRef.current = null;
+      }
+      if (isMountedRef.current) {
+        setIsAiGenerating(false);
+      }
     }
   };
 

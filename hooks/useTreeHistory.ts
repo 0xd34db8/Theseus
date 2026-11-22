@@ -23,7 +23,7 @@ function extractTreeSnapshot(items: SyllabusItem[]): TreeSnapshotNode[] {
   }));
 }
 
-function restoreTreeFromSnapshot(
+export function restoreTreeFromSnapshot(
   snapshot: TreeSnapshotNode[],
   currentItems: SyllabusItem[],
 ): SyllabusItem[] {
@@ -40,11 +40,12 @@ function restoreTreeFromSnapshot(
 
   function apply(nodes: TreeSnapshotNode[]): SyllabusItem[] {
     return nodes.map((n) => {
-      // Keep the latest note for surviving topics so tree undo/redo never discards editor edits.
+      const snapshotHasNote = Boolean(n.hasNote);
+      // Keep the latest note edits for topics that retain hasNote: true in the snapshot,
+      // while honoring hasNote: false so undoing "Create Note" and redoing "Remove Note" work.
       const currentSaved = notesMap.get(n.id);
-      const hasNote =
-        currentSaved !== undefined ? currentSaved.hasNote : Boolean(n.hasNote);
-      const note = currentSaved !== undefined ? currentSaved.note : n.note;
+      const hasNote = snapshotHasNote;
+      const note = snapshotHasNote ? (currentSaved?.note ?? n.note) : undefined;
 
       return {
         id: n.id,

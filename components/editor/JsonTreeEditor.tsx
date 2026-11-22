@@ -113,9 +113,11 @@ export function JsonTreeEditor({
   onSearchChange,
   searchPlaceholder = "Search topics...",
 }: JsonTreeEditorProps) {
-  const [jsonText, setJsonText] = useState(() =>
+  const initialItemsRef = useRef<SyllabusItem[]>(items);
+  const initialJsonRef = useRef<string>(
     serializeSyllabusToJson(items, courseTitle),
   );
+  const [jsonText, setJsonText] = useState(() => initialJsonRef.current);
   const [isValidJson, setIsValidJson] = useState(true);
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
@@ -230,21 +232,20 @@ export function JsonTreeEditor({
     }
   };
 
+  const validateDraft = (draft: string) => {
+    const res = tolerantParseSyllabus(draft, initialItemsRef.current);
+    setIsValidJson(res.isValid && Boolean(res.items && res.items.length > 0));
+    return res;
+  };
+
   const handleJsonChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setJsonText(newText);
-    const res = tolerantParseSyllabus(newText, items);
-    setIsValidJson(res.isValid);
-    if (res.items && res.items.length > 0) {
-      onUpdateItems?.(res.items);
-    }
-    if (res.courseTitle && onUpdateTitle) {
-      onUpdateTitle(res.courseTitle.trim());
-    }
+    validateDraft(newText);
   };
 
   const handleFormatJson = () => {
-    const res = tolerantParseSyllabus(jsonText, items);
+    const res = tolerantParseSyllabus(jsonText, initialItemsRef.current);
     if (res.items && res.items.length > 0) {
       const formatted = serializeSyllabusToJson(
         res.items,
@@ -252,19 +253,36 @@ export function JsonTreeEditor({
       );
       setJsonText(formatted);
       setIsValidJson(true);
-      onUpdateItems?.(res.items);
-      if (res.courseTitle && onUpdateTitle) {
-        onUpdateTitle(res.courseTitle.trim());
+    }
+  };
+
+  const handleApplyAndClose = () => {
+    if (jsonText === initialJsonRef.current) {
+      onClose();
+      return;
+    }
+    const res = tolerantParseSyllabus(jsonText, initialItemsRef.current);
+    if (!res.isValid || !res.items || res.items.length === 0) {
+      setIsValidJson(false);
+      return;
+    }
+    onUpdateItems?.(res.items);
+    if (res.courseTitle && onUpdateTitle) {
+      const nextTitle = res.courseTitle.trim();
+      if (nextTitle && nextTitle !== courseTitle) {
+        onUpdateTitle(nextTitle);
       }
     }
+    onClose();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
-      onClose();
+      handleApplyAndClose();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      // Discard uncommitted JSON edits cleanly without mutating the tree
       onClose();
     } else if (e.key === "Tab") {
       e.preventDefault();
@@ -274,11 +292,7 @@ export function JsonTreeEditor({
       const value = textarea.value;
       const newValue = value.substring(0, start) + "  " + value.substring(end);
       setJsonText(newValue);
-      const res = tolerantParseSyllabus(newValue, items);
-      setIsValidJson(res.isValid);
-      if (res.items && res.items.length > 0) {
-        onUpdateItems?.(res.items);
-      }
+      validateDraft(newValue);
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + 2;
       }, 0);
@@ -299,11 +313,7 @@ export function JsonTreeEditor({
         const newValue =
           value.substring(0, start) + "\n" + totalIndent + value.substring(end);
         setJsonText(newValue);
-        const res = tolerantParseSyllabus(newValue, items);
-        setIsValidJson(res.isValid);
-        if (res.items && res.items.length > 0) {
-          onUpdateItems?.(res.items);
-        }
+        validateDraft(newValue);
         setTimeout(() => {
           textarea.selectionStart = textarea.selectionEnd =
             start + 1 + totalIndent.length;
@@ -397,9 +407,14 @@ export function JsonTreeEditor({
           </button>
           <button
             type="button"
-            onClick={onClose}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground font-medium text-[11px] transition-colors cursor-pointer shadow-2xs"
-            title="Return to Tree view (Esc or Ctrl+Enter)"
+            onClick={handleApplyAndClose}
+            disabled={!isValidJson}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-foreground font-medium text-[11px] transition-colors cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
+            title={
+              isValidJson
+                ? "Apply JSON and return to Tree view (Ctrl+Enter; Esc to cancel)"
+                : "Fix JSON syntax errors or press Esc to cancel"
+            }
           >
             <Braces className="w-3.5 h-3.5" />
             <span>Parse</span>

@@ -82,6 +82,7 @@ export async function callUniversalLLM(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: options.signal,
     });
 
     if (!res.ok) {
@@ -151,6 +152,7 @@ export async function callUniversalLLM(
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify(payload),
+      signal: options.signal,
     });
 
     if (!res.ok) {
@@ -207,6 +209,7 @@ export async function callUniversalLLM(
     method: "POST",
     headers,
     body: JSON.stringify(payload),
+    signal: options.signal,
   });
 
   if (!res.ok) {
@@ -550,6 +553,7 @@ export async function generateNotesWithAI(
     topicTitle: string;
     parentTitle?: string;
     courseTitle?: string;
+    signal?: AbortSignal;
   },
   configOrKey?: string | AIConfig,
 ): Promise<string> {
@@ -558,6 +562,7 @@ export async function generateNotesWithAI(
       systemPrompt: NOTE_GENERATION_SYSTEM_PROMPT,
       userPrompt: buildTopicContext(options),
       jsonOutput: false,
+      signal: options.signal,
     },
     configOrKey,
   );

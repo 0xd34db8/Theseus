@@ -61,9 +61,9 @@ export default function EditPage() {
         result.error === "quota"
           ? "Storage full: changes were not saved locally. Export a .theseus backup or remove large images."
           : "Changes could not be saved to browser storage. Export a .theseus backup to avoid losing work.";
-      queueMicrotask(() => setStorageError(msg));
+      setStorageError(msg);
     } else {
-      queueMicrotask(() => setStorageError((prev) => (prev ? null : prev)));
+      setStorageError((prev) => (prev ? null : prev));
     }
     return result;
   }, []);
@@ -80,12 +80,11 @@ export default function EditPage() {
 
   const applyRestoredItems = useCallback(
     (restoredItems: SyllabusItem[]) => {
-      setSyllabus((prev) => {
-        const updated = { ...prev, isDraft: false, items: restoredItems };
-        syllabusRef.current = updated;
-        persistSyllabus(updated);
-        return updated;
-      });
+      const current = syllabusRef.current;
+      const updated = { ...current, isDraft: false, items: restoredItems };
+      syllabusRef.current = updated;
+      setSyllabus(updated);
+      persistSyllabus(updated);
     },
     [persistSyllabus],
   );
@@ -271,42 +270,48 @@ export default function EditPage() {
 
   // Toggle item expanded state
   const handleToggleExpand = (itemId: string) => {
-    setSyllabus((prev) => {
-      const updated = {
-        ...prev,
-        items: updateItemInTree(prev.items, itemId, (item) => ({
-          ...item,
-          isExpanded: !item.isExpanded,
-        })),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    const updated = {
+      ...current,
+      items: updateItemInTree(current.items, itemId, (item) => ({
+        ...item,
+        isExpanded: !item.isExpanded,
+      })),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   // Update item progress status (done, partial, barely, untouched)
   const handleUpdateStatus = (itemId: string, status: TopicStatus) => {
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: updateItemInTree(prev.items, itemId, (item) => ({
-          ...item,
-          status,
-        })),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: updateItemInTree(current.items, itemId, (item) => ({
+        ...item,
+        status,
+      })),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   // Save note for topic
   const handleSaveNote = useCallback(
-    (topicId: string, note: TopicNote) => {
+    (
+      topicId: string,
+      note: TopicNote,
+      options?: { createIfMissing?: boolean },
+    ) => {
       const current = syllabusRef.current;
+      const target = findItemById(current.items, topicId);
+      if (!target) return;
+      if (options?.createIfMissing === false && !target.hasNote) return;
+
       const updated = {
         ...current,
         isDraft: false,
@@ -336,51 +341,48 @@ export default function EditPage() {
 
   // Toggle note existence
   const handleToggleNote = (itemId: string) => {
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: updateItemInTree(prev.items, itemId, (item) => {
-          const hasNote = !item.hasNote;
-          return {
-            ...item,
-            hasNote,
-            note: hasNote
-              ? buildTopicNote(item, {
-                  content: `### ${item.title}\n\nStart writing notes here...`,
-                })
-              : undefined,
-          };
-        }),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: updateItemInTree(current.items, itemId, (item) => {
+        const hasNote = !item.hasNote;
+        return {
+          ...item,
+          hasNote,
+          note: hasNote
+            ? buildTopicNote(item, {
+                content: `### ${item.title}\n\nStart writing notes here...`,
+              })
+            : undefined,
+        };
+      }),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   const handleFileNameChange = (name: string) => {
-    setSyllabus((prev) => {
-      const updated = { ...prev, isDraft: false, fileName: name };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    const updated = { ...current, isDraft: false, fileName: name };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   const handleDeleteTopic = (itemId: string) => {
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: deleteItemFromTree(prev.items, itemId),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: deleteItemFromTree(current.items, itemId),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
     if (selectedTopicId === itemId) {
       setSelectedTopicId("");
     }
@@ -393,37 +395,35 @@ export default function EditPage() {
       status: "untouched",
       hasNote: false,
     };
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: addItemToTree(prev.items, parentId, newItem),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: addItemToTree(current.items, parentId, newItem),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   const handleRenameTopic = (itemId: string, newTitle: string) => {
     const trimmed = newTitle.trim();
     if (!trimmed) return;
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: updateItemInTree(prev.items, itemId, (item) => ({
-          ...item,
-          title: trimmed,
-          note: item.note ? { ...item.note, title: trimmed } : undefined,
-        })),
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: updateItemInTree(current.items, itemId, (item) => ({
+        ...item,
+        title: trimmed,
+        note: item.note ? { ...item.note, title: trimmed } : undefined,
+      })),
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   const handleExport = () => {
@@ -434,17 +434,16 @@ export default function EditPage() {
   };
 
   const handleUpdateItems = (newItems: SyllabusItem[]) => {
-    setSyllabus((prev) => {
-      pushTreeHistory(prev.items);
-      const updated = {
-        ...prev,
-        isDraft: false,
-        items: newItems,
-      };
-      syllabusRef.current = updated;
-      persistSyllabus(updated);
-      return updated;
-    });
+    const current = syllabusRef.current;
+    pushTreeHistory(current.items);
+    const updated = {
+      ...current,
+      isDraft: false,
+      items: newItems,
+    };
+    syllabusRef.current = updated;
+    setSyllabus(updated);
+    persistSyllabus(updated);
   };
 
   return (

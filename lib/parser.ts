@@ -631,7 +631,7 @@ export function tolerantParseSyllabus(
   // Build existing item lookup by ID, hierarchical path, and title
   const existingById = new Map<string, SyllabusItem>();
   const existingByPath = new Map<string, SyllabusItem>();
-  const existingBySiblingTitle = new Map<string, SyllabusItem>();
+  const existingBySiblingTitle = new Map<string, SyllabusItem[]>();
   const existingByTitleList = new Map<string, SyllabusItem[]>();
   const usedIds = new Set<string>();
 
@@ -643,7 +643,10 @@ export function tolerantParseSyllabus(
 
       if (it.title) {
         const cleanTitle = it.title.trim().toLowerCase();
-        existingBySiblingTitle.set(`${parentPath}:${cleanTitle}`, it);
+        const sibKey = `${parentPath}:${cleanTitle}`;
+        const sibGroup = existingBySiblingTitle.get(sibKey) || [];
+        sibGroup.push(it);
+        existingBySiblingTitle.set(sibKey, sibGroup);
 
         const group = existingByTitleList.get(cleanTitle) || [];
         group.push(it);
@@ -657,71 +660,152 @@ export function tolerantParseSyllabus(
   }
   indexExisting(existingItems);
 
-  function normalizeItem(
-    node: any,
-    prefix: string,
-    idx: number,
-    parentPath: string = "",
-  ): SyllabusItem {
-    const isObj = Boolean(node) && typeof node === "object" && !Array.isArray(node);
-    const currentPath = parentPath ? `${parentPath}.${idx}` : `${idx}`;
-    const rawTitle =
-      typeof node === "string"
-        ? node
-        : isObj && typeof node.title === "string"
-          ? node.title
-          : `Topic ${idx + 1}`;
-    const title = rawTitle.trim() || `Topic ${idx + 1}`;
-    const cleanTitle = title.toLowerCase();
+  interface PreparedNode {
+    raw: any;
+    isObj: boolean;
+    title: string;
+    cleanTitle: string;
+    idx: number;
+    parentPath: string;
+    currentPath: string;
+    matched: SyllabusItem | null;
+    children: PreparedNode[];
+  }
 
-    // 1. Direct ID match
-    let matched: SyllabusItem | null = null;
-    if (isObj && typeof node.id === "string" && existingById.has(node.id) && !usedIds.has(node.id)) {
-      matched = existingById.get(node.id)!;
+  function prepareNodes(list: any[], parentPath: string = ""): PreparedNode[] {
+    const valid = list.filter(
+      (it) =>
+        it !== null &&
+        it !== undefined &&
+        (typeof it === "string" || (typeof it === "object" && !Array.isArray(it))),
+    );
+    return valid.map((node, idx) => {
+      const isObj =
+        Boolean(node) && typeof node === "object" && !Array.isArray(node);
+      const currentPath = parentPath ? `${parentPath}.${idx}` : `${idx}`;
+      const rawTitle =
+        typeof node === "string"
+          ? node
+          : isObj && typeof node.title === "string"
+            ? node.title
+            : `Topic ${idx + 1}`;
+      const title = rawTitle.trim() || `Topic ${idx + 1}`;
+      const cleanTitle = title.toLowerCase();
+      const children =
+        isObj && Array.isArray(node.children)
+          ? prepareNodes(node.children, currentPath)
+          : [];
+
+      return {
+        raw: node,
+        isObj,
+        title,
+        cleanTitle,
+        idx,
+        parentPath,
+        currentPath,
+        matched: null,
+        children,
+      };
+    });
+  }
+
+  const preparedTree = prepareNodes(validRawItems, "");
+
+  function walkPrepared(
+    nodes: PreparedNode[],
+    visitor: (n: PreparedNode) => void,
+  ) {
+    for (const n of nodes) {
+      visitor(n);
+      if (n.children.length > 0) {
+        walkPrepared(n.children, visitor);
+      }
     }
+  }
 
-    // 2. Exact structural path match
-    if (!matched) {
-      const candidateByPath = existingByPath.get(currentPath);
-      if (candidateByPath && !usedIds.has(candidateByPath.id)) {
-        // Path match: either same title or in-place topic rename at same structural position
-        if (candidateByPath.title.trim().toLowerCase() === cleanTitle || !(isObj && node.id)) {
-          matched = candidateByPath;
+  // Pass 1a: Direct ID match
+  walkPrepared(preparedTree, (n) => {
+    if (
+      n.isObj &&
+      typeof n.raw.id === "string" &&
+      existingById.has(n.raw.id) &&
+      !usedIds.has(n.raw.id)
+    ) {
+      const cand = existingById.get(n.raw.id)!;
+      n.matched = cand;
+      usedIds.add(cand.id);
+    }
+  });
+
+  // Pass 1b: Exact path + exact title match (keeps duplicate-titled siblings anchored)
+  walkPrepared(preparedTree, (n) => {
+    if (n.matched) return;
+    const cand = existingByPath.get(n.currentPath);
+    if (
+      cand &&
+      !usedIds.has(cand.id) &&
+      cand.title.trim().toLowerCase() === n.cleanTitle
+    ) {
+      n.matched = cand;
+      usedIds.add(cand.id);
+    }
+  });
+
+  // Pass 1c: Sibling title match within same parent path (preserves notes on reorder/insert)
+  walkPrepared(preparedTree, (n) => {
+    if (n.matched) return;
+    const sibCandidates = existingBySiblingTitle.get(
+      `${n.parentPath}:${n.cleanTitle}`,
+    );
+    if (sibCandidates) {
+      for (const cand of sibCandidates) {
+        if (!usedIds.has(cand.id)) {
+          n.matched = cand;
+          usedIds.add(cand.id);
+          break;
         }
       }
     }
+  });
 
-    // 3. Sibling match within same parent unit
-    if (!matched) {
-      const siblingCandidate = existingBySiblingTitle.get(`${parentPath}:${cleanTitle}`);
-      if (siblingCandidate && !usedIds.has(siblingCandidate.id)) {
-        matched = siblingCandidate;
-      }
-    }
-
-    // 4. Global fallback by title across tree (only unused items)
-    if (!matched) {
-      const candidates = existingByTitleList.get(cleanTitle);
-      if (candidates) {
-        for (const cand of candidates) {
-          if (!usedIds.has(cand.id)) {
-            matched = cand;
-            break;
-          }
+  // Pass 1d: Global title match across tree (preserves notes when moving topics across units)
+  walkPrepared(preparedTree, (n) => {
+    if (n.matched) return;
+    const candidates = existingByTitleList.get(n.cleanTitle);
+    if (candidates) {
+      for (const cand of candidates) {
+        if (!usedIds.has(cand.id)) {
+          n.matched = cand;
+          usedIds.add(cand.id);
+          break;
         }
       }
     }
+  });
 
-    if (matched) {
-      usedIds.add(matched.id);
+  // Pass 2: Positional path fallback ONLY for unclaimed existing items (supports in-place renames)
+  walkPrepared(preparedTree, (n) => {
+    if (n.matched) return;
+    const candidateByPath = existingByPath.get(n.currentPath);
+    if (
+      candidateByPath &&
+      !usedIds.has(candidateByPath.id) &&
+      !(n.isObj && n.raw.id)
+    ) {
+      n.matched = candidateByPath;
+      usedIds.add(candidateByPath.id);
     }
+  });
 
-    const id =
-      matched
-        ? matched.id
-        : isObj && typeof node.id === "string" && !usedIds.has(node.id)
-          ? (usedIds.add(node.id), node.id)
-          : `${prefix}-${Date.now()}-${idx}`;
+  function buildItem(n: PreparedNode, prefix: string): SyllabusItem {
+    const { raw: node, isObj, title, idx, matched } = n;
+
+    const id = matched
+      ? matched.id
+      : isObj && typeof node.id === "string" && !usedIds.has(node.id)
+        ? (usedIds.add(node.id), node.id)
+        : `${prefix}-${Date.now()}-${idx}`;
 
     const status: TopicStatus =
       isObj &&
@@ -749,21 +833,9 @@ export function tolerantParseSyllabus(
           ? matched.isExpanded
           : true;
 
-    const rawChildren =
-      isObj && Array.isArray(node.children)
-        ? node.children.filter(
-            (c: any) =>
-              c !== null &&
-              c !== undefined &&
-              (typeof c === "string" || (typeof c === "object" && !Array.isArray(c))),
-          )
-        : [];
-
     const children =
-      rawChildren.length > 0
-        ? rawChildren.map((c: any, cIdx: number) =>
-            normalizeItem(c, id, cIdx, currentPath),
-          )
+      n.children.length > 0
+        ? n.children.map((c) => buildItem(c, id))
         : undefined;
 
     return {
@@ -777,7 +849,7 @@ export function tolerantParseSyllabus(
     };
   }
 
-  const items = validRawItems.map((it, idx) => normalizeItem(it, "u", idx, ""));
+  const items = preparedTree.map((n) => buildItem(n, "u"));
 
   let detectedCourseTitle: string | undefined = undefined;
   if (!Array.isArray(rawData) && rawData && typeof rawData === "object") {
